@@ -1,28 +1,25 @@
 import type { PropsWithChildren } from 'react';
 import type { Metadata } from 'next';
-import { getLocale } from 'next-intl/server';
 
+import { ConvexClientProvider } from '@/app/ConvexClientProvider';
 import { Root } from '@/components/Root/Root';
-import { I18nProvider } from '@/core/i18n/provider';
 
 import '@telegram-apps/telegram-ui/dist/styles.css';
 import 'normalize.css/normalize.css';
-import './_assets/globals.css';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Your Application Title Goes Here',
-  description: 'Your application description goes here',
+  title: 'Reseller Bot - P2P Marketplace',
+  description: 'Buy and sell items in your community through Telegram',
 };
 
-export default async function RootLayout({ children }: PropsWithChildren) {
-  const locale = await getLocale();
-
+export default function RootLayout({ children }: PropsWithChildren) {
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <I18nProvider>
+        <ConvexClientProvider>
           <Root>{children}</Root>
-        </I18nProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );
