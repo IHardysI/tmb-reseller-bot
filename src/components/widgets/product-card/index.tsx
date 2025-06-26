@@ -1,0 +1,135 @@
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Heart, Lock, Star, ShoppingCart, Award } from "lucide-react"
+
+interface Product {
+  id: string
+  name: string
+  brand: string
+  price: number
+  originalPrice?: number
+  images: string[]
+  condition: string
+  year: number
+  aiRating: number
+  aiRecommendation: string
+  aiExplanation: string
+  sellerTrust: "bronze" | "silver" | "gold"
+  sellerName: string
+  sellerAvatar: string
+  sellerRating: number
+  sellerReviews: number
+  isFavorite: boolean
+  description: string
+  defects: {
+    description: string
+    image: string
+    location: string
+  }[]
+}
+
+interface ProductCardProps {
+  product: Product
+  onProductClick: (product: Product) => void
+  onToggleFavorite: (productId: string) => void
+}
+
+export default function ProductCard({ product, onProductClick, onToggleFavorite }: ProductCardProps) {
+  const getTrustIcon = (trust: string) => {
+    const colors = {
+      bronze: "text-amber-600",
+      silver: "text-gray-500",
+      gold: "text-yellow-500",
+    }
+    return <Award className={`h-4 w-4 ${colors[trust as keyof typeof colors]}`} />
+  }
+
+  const getTrustLabel = (trust: string) => {
+    const labels = {
+      bronze: "Бронза",
+      silver: "Серебро",
+      gold: "Золото",
+    }
+    return labels[trust as keyof typeof labels]
+  }
+
+  return (
+    <Card
+      key={product.id}
+      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer p-0!"
+      onClick={() => onProductClick(product)}
+    >
+      <div className="relative">
+        <img
+          src={product.images[0] || "/placeholder.svg"}
+          alt={product.name}
+          className="w-full aspect-[4/3] object-cover"
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleFavorite(product.id)
+          }}
+        >
+          <Heart
+            className={`h-4 w-4 ${product.isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`}
+          />
+        </Button>
+      </div>
+
+      <CardContent className="p-2">
+        <div className="space-y-1">
+          <div>
+            <h3 className="font-medium text-xs line-clamp-1">{product.name}</h3>
+            <p className="text-xs text-gray-600">{product.brand}</p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1">
+              <span className="font-bold text-xs">{product.price.toLocaleString()} ₽</span>
+              <Lock className="h-2 w-2 text-green-600" />
+            </div>
+            {product.originalPrice && (
+              <span className="text-xs text-gray-400 line-through">
+                {product.originalPrice.toLocaleString()} ₽
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-1">
+              <div className="flex items-center">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-2 w-2 ${i < Math.floor(product.aiRating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                  />
+                ))}
+              </div>
+              <span className="text-green-600 text-xs truncate">{product.aiRecommendation}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-1">
+              {getTrustIcon(product.sellerTrust)}
+              <span className="truncate">{getTrustLabel(product.sellerTrust)}</span>
+            </div>
+            <span className="text-gray-600 truncate">{product.sellerName}</span>
+          </div>
+
+          <Button 
+            size="sm" 
+            className="w-full text-xs h-7"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ShoppingCart className="h-2 w-2 mr-1" />В корзину
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+} 
