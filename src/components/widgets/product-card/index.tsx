@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Lock, Star, ShoppingCart, Award } from "lucide-react"
+import Image from "next/image"
 
 interface Product {
   id: string
@@ -60,7 +61,7 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite 
       onClick={() => onProductClick(product)}
     >
       <div className="relative">
-        <img
+        <Image
           src={product.images[0] || "/placeholder.svg"}
           alt={product.name}
           className="w-full aspect-[4/3] object-cover"
