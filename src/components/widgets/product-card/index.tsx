@@ -8,7 +8,6 @@ interface Product {
   name: string
   brand: string
   price: number
-  originalPrice?: number
   images: string[]
   condition: string
   year: number
@@ -57,13 +56,15 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite 
   return (
     <Card
       key={product.id}
-      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer p-0!"
+      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer p-0! gap-0!"
       onClick={() => onProductClick(product)}
     >
       <div className="relative">
         <Image
           src={product.images[0] || "/placeholder.svg"}
           alt={product.name}
+          width={400}
+          height={300}
           className="w-full aspect-[4/3] object-cover"
         />
         <Button
@@ -88,16 +89,9 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite 
             <p className="text-xs text-gray-600">{product.brand}</p>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1">
-              <span className="font-bold text-xs">{product.price.toLocaleString()} ₽</span>
-              <Lock className="h-2 w-2 text-green-600" />
-            </div>
-            {product.originalPrice && (
-              <span className="text-xs text-gray-400 line-through">
-                {product.originalPrice.toLocaleString()} ₽
-              </span>
-            )}
+          <div className="flex items-center space-x-1">
+            <span className="font-bold text-xs">{product.price.toLocaleString()} ₽</span>
+            <Lock className="h-2 w-2 text-green-600" />
           </div>
 
           <div className="flex items-center justify-between text-xs">

@@ -1,3 +1,89 @@
+# Reseller Bot - Telegram Mini App
+
+A Next.js-based Telegram Mini App for managing reselling business.
+
+## Features
+
+- 📊 Inventory tracking
+- 💰 Profit calculations
+- 📈 Sales reporting
+- 🤖 Telegram bot integration
+
+## Setup
+
+### 1. Install dependencies
+```bash
+pnpm install
+```
+
+### 2. Set up environment variables
+Copy `env.template` to `.env.local` and fill in your values:
+```bash
+cp env.template .env.local
+```
+
+Or create `.env.local` manually:
+```env
+BOT_TOKEN=your_telegram_bot_token_here
+NEXT_PUBLIC_APP_URL=https://your-deployed-app-url.vercel.app
+CONVEX_DEPLOYMENT=your_convex_deployment_url
+NODE_ENV=development
+```
+
+### 3. Get a Telegram Bot Token
+1. Open Telegram and search for `@BotFather`
+2. Send `/newbot` and follow the instructions
+3. Copy the bot token to your `.env.local` file
+
+### 4. Deploy your app
+Deploy to Vercel, Netlify, or your preferred platform and update the `NEXT_PUBLIC_APP_URL` in your environment variables.
+
+### 5. Run the bot
+```bash
+pnpm bot
+```
+
+## Development
+
+### Option 1: All in one terminal
+```bash
+pnpm dev:all
+```
+
+### Option 2: Separate terminals
+**Terminal 1 - Next.js:**
+```bash
+pnpm dev
+```
+
+**Terminal 2 - Convex:**
+```bash
+pnpm convex dev
+```
+
+**Terminal 3 - Bot:**
+```bash
+pnpm bot
+```
+
+## Bot Commands
+
+- `/start` - Opens the Mini App with a welcome message
+
+## Project Structure
+
+```
+├── src/
+│   ├── app/              # Next.js app directory
+│   ├── components/
+│   │   └── shared/
+│   │       └── api/
+│   │           ├── bot.ts      # Simple Telegram bot
+│   │           └── index.ts    # API exports  
+│   └── ...
+└── .env.local           # Environment variables
+```
+
 # Telegram Mini Apps Next.js Template
 
 This template demonstrates how developers can implement a web application on the
@@ -12,15 +98,6 @@ Telegram Mini Apps platform using the following technologies and libraries:
 > The template was created using [pnpm](https://pnpm.io/). Therefore, it is
 > required to use it for this project as well. Using other package managers, you
 > will receive a corresponding error.
-
-## Install Dependencies
-
-If you have just cloned this template, you should install the project
-dependencies using the command:
-
-```Bash
-pnpm install
-```
 
 ## Scripts
 

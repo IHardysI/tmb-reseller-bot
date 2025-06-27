@@ -54,9 +54,9 @@ const mockProducts: Product[] = [
     price: 85000,
     originalPrice: 150000,
     images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
+      "https://picsum.photos/400/400?random=1",
+      "https://picsum.photos/400/400?random=2",
+      "https://picsum.photos/400/400?random=3",
     ],
     condition: "Как новое",
     year: 2022,
@@ -66,7 +66,7 @@ const mockProducts: Product[] = [
       "Цена соответствует рыночной стоимости аналогичных товаров в данном состоянии. Учитывая год покупки и состояние, стоимость оправдана.",
     sellerTrust: "gold",
     sellerName: "Анна К.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
+    sellerAvatar: "https://picsum.photos/48/48?random=10",
     sellerRating: 4.8,
     sellerReviews: 127,
     isFavorite: false,
@@ -74,7 +74,7 @@ const mockProducts: Product[] = [
     defects: [
       {
         description: "Небольшие потертости на углах",
-        image: "/placeholder.svg?height=60&width=60",
+        image: "https://picsum.photos/60/60?random=15",
         location: "Нижние углы сумки",
       },
     ],
@@ -86,9 +86,9 @@ const mockProducts: Product[] = [
     price: 25000,
     originalPrice: 35000,
     images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
+      "https://picsum.photos/400/400?random=4",
+      "https://picsum.photos/400/400?random=5",
+      "https://picsum.photos/400/400?random=6",
     ],
     condition: "С дефектами",
     year: 2021,
@@ -97,7 +97,7 @@ const mockProducts: Product[] = [
     aiExplanation: "Наличие дефектов снижает стоимость. Рекомендуется запросить дополнительную скидку у продавца.",
     sellerTrust: "silver",
     sellerName: "Максим П.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
+    sellerAvatar: "https://picsum.photos/48/48?random=11",
     sellerRating: 4.2,
     sellerReviews: 64,
     isFavorite: true,
@@ -105,7 +105,7 @@ const mockProducts: Product[] = [
     defects: [
       {
         description: "Небольшая царапина на коже",
-        image: "/placeholder.svg?height=60&width=60",
+        image: "https://picsum.photos/60/60?random=16",
         location: "Боковая часть кроссовка",
       },
     ],
@@ -117,9 +117,9 @@ const mockProducts: Product[] = [
     price: 120000,
     originalPrice: 200000,
     images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
+      "https://picsum.photos/400/400?random=7",
+      "https://picsum.photos/400/400?random=8",
+      "https://picsum.photos/400/400?random=9",
     ],
     condition: "Новое",
     year: 2023,
@@ -128,7 +128,7 @@ const mockProducts: Product[] = [
     aiExplanation: "Платье новое, текущая цена значительно ниже первоначальной. Это выгодное предложение.",
     sellerTrust: "gold",
     sellerName: "Елена В.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
+    sellerAvatar: "https://picsum.photos/48/48?random=12",
     sellerRating: 4.9,
     sellerReviews: 212,
     isFavorite: false,
@@ -142,9 +142,9 @@ const mockProducts: Product[] = [
     price: 450000,
     originalPrice: 800000,
     images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
+      "https://picsum.photos/400/400?random=13",
+      "https://picsum.photos/400/400?random=14",
+      "https://picsum.photos/400/400?random=15",
     ],
     condition: "Как новое",
     year: 2020,
@@ -153,7 +153,7 @@ const mockProducts: Product[] = [
     aiExplanation: "Цена соответствует состоянию и году выпуска часов. Рекомендуется проверить подлинность.",
     sellerTrust: "bronze",
     sellerName: "Дмитрий С.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
+    sellerAvatar: "https://picsum.photos/48/48?random=13",
     sellerRating: 3.5,
     sellerReviews: 32,
     isFavorite: false,
@@ -161,8 +161,6 @@ const mockProducts: Product[] = [
     defects: [],
   },
 ]
-
-
 
 function MarketplaceContent() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -181,8 +179,6 @@ function MarketplaceContent() {
       products.map((product) => (product.id === productId ? { ...product, isFavorite: !product.isFavorite } : product)),
     )
   }
-
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -214,42 +210,80 @@ function MarketplaceContent() {
               />
             </div>
 
-            <Sidebar
-              priceRange={priceRange}
-              setPriceRange={setPriceRange}
-              selectedBrands={selectedBrands}
-              setSelectedBrands={setSelectedBrands}
-              selectedConditions={selectedConditions}
-              setSelectedConditions={setSelectedConditions}
-              yearRange={yearRange}
-              setYearRange={setYearRange}
-              selectedCategories={selectedCategories}
-              setSelectedCategories={setSelectedCategories}
-              isMobileSidebarOpen={isMobileSidebarOpen}
-              setIsMobileSidebarOpen={setIsMobileSidebarOpen}
-            />
+            <div className="lg:hidden">
+              <Sidebar
+                priceRange={priceRange}
+                setPriceRange={setPriceRange}
+                selectedBrands={selectedBrands}
+                setSelectedBrands={setSelectedBrands}
+                selectedConditions={selectedConditions}
+                setSelectedConditions={setSelectedConditions}
+                yearRange={yearRange}
+                setYearRange={setYearRange}
+                selectedCategories={selectedCategories}
+                setSelectedCategories={setSelectedCategories}
+                isMobileSidebarOpen={isMobileSidebarOpen}
+                setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+              />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {selectedBrands.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  {selectedBrands.slice(0, 2).map((brand) => (
-                    <Badge key={brand} variant="secondary" className="text-xs">
-                      {brand}
-                      <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setSelectedBrands(selectedBrands.filter(b => b !== brand))} />
-                    </Badge>
-                  ))}
-                  {selectedBrands.length > 2 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{selectedBrands.length - 2}
-                    </Badge>
-                  )}
-                </div>
-              )}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
+            <div className="flex-1 lg:mr-4">
+              <div className="flex items-center flex-wrap gap-2">
+                {(() => {
+                  const allFilters = [
+                    ...selectedBrands.map((brand) => ({
+                      type: 'brand',
+                      label: `Бренд: ${brand}`,
+                      onRemove: () => setSelectedBrands(selectedBrands.filter(b => b !== brand))
+                    })),
+                    ...selectedConditions.map((condition) => ({
+                      type: 'condition',
+                      label: `Состояние: ${condition}`,
+                      onRemove: () => setSelectedConditions(selectedConditions.filter(c => c !== condition))
+                    })),
+                    ...selectedCategories.map((category) => ({
+                      type: 'category',
+                      label: `Категория: ${category}`,
+                      onRemove: () => setSelectedCategories(selectedCategories.filter(c => c !== category))
+                    })),
+                    ...((priceRange[0] > 0 || priceRange[1] < 500000) ? [{
+                      type: 'price',
+                      label: `Цена: ${priceRange[0].toLocaleString()}-${priceRange[1].toLocaleString()} ₽`,
+                      onRemove: () => setPriceRange([0, 500000])
+                    }] : []),
+                    ...((yearRange[0] > 2020 || yearRange[1] < 2024) ? [{
+                      type: 'year',
+                      label: `Год: ${yearRange[0]}-${yearRange[1]}`,
+                      onRemove: () => setYearRange([2020, 2024])
+                    }] : [])
+                  ]
+                  
+                  const maxVisible = 3
+                  const visibleFilters = allFilters.slice(0, maxVisible)
+                  const hiddenCount = allFilters.length - maxVisible
+                  
+                  return (
+                    <>
+                      {visibleFilters.map((filter, index) => (
+                        <Badge key={`${filter.type}-${index}`} variant="secondary" className="text-xs whitespace-nowrap flex-shrink-0 filter-badge">
+                          <span className="truncate">{filter.label}</span>
+                          <X className="h-3 w-3 ml-1 cursor-pointer flex-shrink-0" onClick={filter.onRemove} />
+                        </Badge>
+                      ))}
+                      {hiddenCount > 0 && (
+                        <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">
+                          +{hiddenCount} еще
+                        </Badge>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
             </div>
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-48 border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+              <SelectTrigger className="w-full lg:w-48 border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700 flex-shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -264,6 +298,22 @@ function MarketplaceContent() {
       </div>
 
       <div className="flex">
+        <div className="hidden lg:block">
+          <Sidebar
+            priceRange={priceRange}
+            setPriceRange={setPriceRange}
+            selectedBrands={selectedBrands}
+            setSelectedBrands={setSelectedBrands}
+            selectedConditions={selectedConditions}
+            setSelectedConditions={setSelectedConditions}
+            yearRange={yearRange}
+            setYearRange={setYearRange}
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+          />
+        </div>
         <div className="flex-1 p-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {products.map((product) => (

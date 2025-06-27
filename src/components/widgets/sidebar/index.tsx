@@ -3,7 +3,14 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetTrigger 
+} from "@/components/ui/sheet"
 import { Slider } from "@/components/ui/slider"
 import {
   ChevronRight,
@@ -130,7 +137,7 @@ export default function Sidebar({
             <div key={mainCategory} className="border-l-2 border-gray-200 pl-3">
               <button
                 onClick={() => toggleCategory(mainCategory)}
-                className="flex items-center justify-between w-full text-left text-sm font-medium py-2 hover:text-blue-600 transition-colors"
+                className="flex items-center justify-between w-full text-left text-sm font-medium py-2 text-gray-800 hover:text-blue-600 transition-colors"
               >
                 {mainCategory}
                 <ChevronRight
@@ -182,7 +189,7 @@ export default function Sidebar({
         </h3>
         <div className="space-y-3">
           {brands.map((brand) => (
-            <div key={brand} className="flex items-center space-x-3">
+            <div key={brand} className="flex items-center gap-2">
               <Checkbox
                 id={brand}
                 checked={selectedBrands.includes(brand)}
@@ -202,7 +209,14 @@ export default function Sidebar({
           Цена
         </h3>
         <div className="px-2">
-          <Slider value={priceRange} onValueChange={setPriceRange} max={500000} step={5000} className="mb-4" />
+          <Slider 
+            value={priceRange} 
+            onValueChange={setPriceRange} 
+            min={0}
+            max={500000} 
+            step={5000} 
+            className="mb-4"
+          />
           <div className="flex justify-between text-sm text-gray-600 font-medium">
             <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0].toLocaleString()} ₽</span>
             <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1].toLocaleString()} ₽</span>
@@ -237,7 +251,14 @@ export default function Sidebar({
           Год покупки
         </h3>
         <div className="px-2">
-          <Slider value={yearRange} onValueChange={setYearRange} min={2015} max={2024} step={1} className="mb-4" />
+          <Slider 
+            value={yearRange} 
+            onValueChange={setYearRange} 
+            min={2015} 
+            max={2024} 
+            step={1} 
+            className="mb-4"
+          />
           <div className="flex justify-between text-sm text-gray-600 font-medium">
             <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0]}</span>
             <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1]}</span>
@@ -249,7 +270,7 @@ export default function Sidebar({
 
     return (
     <>
-      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen} modal={true}>
         <SheetTrigger asChild>
           <Button
             variant="outline"
@@ -263,13 +284,15 @@ export default function Sidebar({
         <SheetContent side="left" className="w-80 p-0">
           <div className="h-full flex flex-col">
             <SheetHeader className="px-6 py-4 border-b bg-white shadow-sm">
-              <SheetTitle className="text-lg font-semibold text-gray-900">Reseller Market</SheetTitle>
+              <SheetTitle className="text-lg font-semibold text-gray-900">Peer Swap</SheetTitle>
+              <SheetDescription className="sr-only">
+                Мобильное меню с навигацией и фильтрами для поиска товаров
+              </SheetDescription>
             </SheetHeader>
             
             <ScrollArea className="flex-1 px-6 py-4" style={{ height: "calc(100vh - 80px)" }}>
-              <div className="space-y-6 pb-8">
-                <div className="pb-6 border-b border-gray-200">
-                  <h3 className="font-semibold mb-4 text-gray-900">Навигация</h3>
+              <div className="space-y-6 pb-3">
+                <div className="pb-6 border-b-2 border-gray-200">
                   <div className="space-y-2">
                     <Button variant="ghost" className="w-full justify-start hover:bg-gray-100" size="lg">
                       <MessageCircle className="h-5 w-5 mr-3 text-gray-600" />
@@ -281,6 +304,8 @@ export default function Sidebar({
                     </Button>
                   </div>
                 </div>
+
+              
 
                 <div>
                   <h3 className="font-semibold mb-4 text-gray-900 flex items-center">
