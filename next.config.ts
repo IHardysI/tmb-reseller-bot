@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'picsum.photos',
+        hostname: '*.convex.cloud',
         port: '',
-        pathname: '/**',
+        pathname: '/api/storage/**',
       },
     ],
   },

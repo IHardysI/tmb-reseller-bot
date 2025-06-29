@@ -11,7 +11,7 @@ import { AppRoot } from '@telegram-apps/telegram-ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ErrorPage } from '@/components/ErrorPage';
 import { useDidMount } from '@/hooks/useDidMount';
-import Loader from '@/components/shared/loader';
+import Loader from '@/components/ui/loader';
 
 import './styles.css';
 

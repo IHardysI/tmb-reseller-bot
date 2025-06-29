@@ -1,6 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useQuery, useMutation } from "convex/react"
+import { api } from "@/../convex/_generated/api"
+import { Id } from "@/../convex/_generated/dataModel"
+import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,311 +14,383 @@ import {
   ShoppingCart,
   Lock,
   Star,
-  Award,
   MessageCircle,
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  MapPin,
+  X,
+  Eye,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-
-interface Product {
-  id: string
-  name: string
-  brand: string
-  price: number
-  originalPrice?: number
-  images: string[]
-  condition: string
-  year: number
-  aiRating: number
-  aiRecommendation: string
-  aiExplanation: string
-  sellerTrust: "bronze" | "silver" | "gold"
-  sellerName: string
-  sellerAvatar: string
-  sellerRating: number
-  sellerReviews: number
-  isFavorite: boolean
-  description: string
-  defects: Array<{
-    description: string
-    image: string
-    location: string
-  }>
-}
+import Image from "next/image"
 
 interface ProductDetailProps {
-  product: Product | null
+  postId: Id<"posts"> | null
   isOpen: boolean
   onClose: () => void
-  onToggleFavorite: (productId: string) => void
 }
 
-export default function ProductDetail({ product, isOpen, onClose, onToggleFavorite }: ProductDetailProps) {
+export default function ProductDetail({ postId, isOpen, onClose }: ProductDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isLiking, setIsLiking] = useState(false)
+  const telegramUser = useTelegramUser()
+  
+  const post = useQuery(api.posts.getPostById, postId ? { postId } : "skip")
+  const currentUser = useQuery(
+    api.users.getUserByTelegramId, 
+    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
+  )
+  const likePost = useMutation(api.posts.likePost)
+  const unlikePost = useMutation(api.posts.unlikePost)
+  const incrementViews = useMutation(api.posts.incrementViews)
 
-  if (!product) return null
+  useEffect(() => {
+    if (isOpen && postId && telegramUser?.userId) {
+      incrementViews({ postId, telegramId: telegramUser.userId })
+    }
+  }, [isOpen, postId, telegramUser?.userId, incrementViews])
+
+  if (!post || !postId) return null
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % product.images.length)
+    setCurrentImageIndex((prev) => (prev + 1) % post.images.length)
   }
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length)
+    setCurrentImageIndex((prev) => (prev - 1 + post.images.length) % post.images.length)
   }
 
-  const getTrustIcon = (trust: string) => {
-    const colors = {
-      bronze: "text-amber-600",
-      silver: "text-gray-500",
-      gold: "text-yellow-500",
+  const handleToggleLike = async () => {
+    if (!telegramUser?.userId || !postId || isLiking) return
+    
+    setIsLiking(true)
+    try {
+      if (isLiked) {
+        await unlikePost({ postId, telegramId: telegramUser.userId })
+      } else {
+        await likePost({ postId, telegramId: telegramUser.userId })
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error)
+    } finally {
+      setIsLiking(false)
     }
-    return <Award className={`h-4 w-4 ${colors[trust as keyof typeof colors]}`} />
   }
 
-  const getTrustLabel = (trust: string) => {
-    const labels = {
-      bronze: "Бронза, 85% отзывов положительные",
-      silver: "Серебро, 92% отзывов положительные",
-      gold: "Золото, 98% отзывов положительные",
-    }
-    return labels[trust as keyof typeof labels]
-  }
-
-  const getAiRatingColor = (rating: number) => {
-    if (rating >= 4.5) return "text-green-600"
-    if (rating >= 3.5) return "text-yellow-600"
-    return "text-red-600"
-  }
+  const isLiked = currentUser && post.likedBy?.includes(currentUser._id) || false
+  const likesCount = post.likesCount || 0
+  const viewsCount = post.views || 0
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl w-[100vw] h-[100vh] md:w-[95vw] md:h-[95vh] md:max-h-[95vh] p-0 md:rounded-lg">
-        <DialogHeader className="p-4 border-b flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold">Детали товара</DialogTitle>
+      <DialogContent className="max-w-3xl! w-[95vw] h-[95vh] p-0 overflow-hidden">
+        <DialogHeader className="p-4 border-b bg-white sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl font-semibold">
+              Детали товара
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-3 md:p-6">
-          <div className="space-y-4 md:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-              {/* Image Gallery - takes 2 columns on desktop */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <img
-                    src={product.images[currentImageIndex] || "/placeholder.svg?height=600&width=600"}
-                    alt={product.name}
-                    className="w-full aspect-square lg:aspect-[3/2] object-cover rounded-lg"
-                  />
-                  {product.images.length > 1 && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 h-8 w-8"
-                        onClick={prevImage}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 h-8 w-8"
-                        onClick={nextImage}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-3 lg:px-6 py-2 lg:py-3 space-y-4 lg:space-y-8">
+            {/* Full Width Images */}
+            <Card className="overflow-hidden hover:shadow-lg transition-shadow group py-0">
+              <div className="relative">
+                <Image
+                  src={post.images[currentImageIndex] || "/placeholder.svg"}
+                  alt={post.name}
+                  width={800}
+                  height={450}
+                  className="w-full aspect-[16/9] object-cover"
+                  priority
+                  unoptimized
+                />
+                
+                {post.images.length > 1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-50 shadow-xl border-gray-300 h-8 w-8 lg:h-12 lg:w-12 z-10"
+                      onClick={prevImage}
+                    >
+                      <ChevronLeft className="h-4 w-4 lg:h-6 lg:w-6 text-gray-700" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-50 shadow-xl border-gray-300 h-8 w-8 lg:h-12 lg:w-12 z-10"
+                      onClick={nextImage}
+                    >
+                      <ChevronRight className="h-4 w-4 lg:h-6 lg:w-6 text-gray-700" />
+                    </Button>
+                  </>
+                )}
+                
+                <div className="absolute bottom-2 lg:bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-2 lg:px-4 rounded-full text-sm lg:text-lg font-medium leading-none">
+                  {currentImageIndex + 1} / {post.images.length}
+                </div>
+              </div>
+            </Card>
+
+            {/* Thumbnail Gallery */}
+            {post.images.length > 1 && (
+              <div className="flex justify-center gap-2 lg:gap-4 overflow-x-auto pb-2">
+                {post.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`flex-shrink-0 w-16 h-16 lg:w-24 lg:h-24 rounded-lg overflow-hidden border-2 transition-all ${
+                      index === currentImageIndex 
+                        ? "border-blue-500 ring-2 ring-blue-200" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <Image
+                      src={image || "/placeholder.svg"}
+                      alt={`${post.name} ${index + 1}`}
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-2">
+              <Button size="sm" className="px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                <ShoppingCart className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                <span className="hidden sm:inline">Добавить в корзину</span>
+                <span className="sm:hidden">В корзину</span>
+              </Button>
+              <Button variant="outline" size="sm" className="px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                <span className="hidden sm:inline">Написать продавцу</span>
+                <span className="sm:hidden">Написать</span>
+              </Button>
+            </div>
+
+            {/* Product Info */}
+            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+              <CardContent className="p-4 lg:p-8">
+                <div className="space-y-3 lg:space-y-6">
+                  <div>
+                    <h1 className="font-bold text-xl lg:text-4xl leading-tight mb-2 lg:mb-4">{post.name}</h1>
+                    <div className="flex items-center gap-2 lg:gap-4 text-gray-600 text-sm lg:text-xl">
+                      <span className="font-semibold text-blue-600 text-base lg:text-2xl">{post.brand}</span>
+                      <span className="w-1 h-1 lg:w-2 lg:h-2 bg-gray-400 rounded-full"></span>
+                      <span>{post.year} год</span>
+                      <span className="w-1 h-1 lg:w-2 lg:h-2 bg-gray-400 rounded-full"></span>
+                      <span className="capitalize">{post.condition}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <span className="font-bold text-2xl lg:text-5xl">{post.price.toLocaleString()} ₽</span>
+                      <Lock className="h-5 w-5 lg:h-8 lg:w-8 text-green-600" />
+                    </div>
+                  </div>
+
+                  {post.aiRating && post.aiRecommendation && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 lg:space-x-3">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 lg:h-6 lg:w-6 ${i < Math.floor(post.aiRating!) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-green-600 font-semibold text-sm lg:text-lg">{post.aiRecommendation}</span>
+                        <span className="font-bold text-base lg:text-xl">{post.aiRating!.toFixed(1)}</span>
+                      </div>
+                    </div>
                   )}
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                    {currentImageIndex + 1} / {product.images.length}
+
+                  <div className="flex items-center justify-between text-gray-600 text-sm lg:text-lg">
+                    <div className="flex items-center space-x-4 lg:space-x-8">
+                      <div className="flex items-center space-x-1 lg:space-x-2">
+                        <Eye className="h-4 w-4 lg:h-5 lg:w-5" />
+                        <span>{viewsCount}</span>
+                      </div>
+                      <button
+                        onClick={handleToggleLike}
+                        disabled={isLiking}
+                        className={`flex items-center space-x-1 lg:space-x-2 transition-all hover:scale-105 ${
+                          isLiked ? "text-red-500" : "hover:text-red-500"
+                        } ${isLiking ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        <Heart className={`h-4 w-4 lg:h-5 lg:w-5 ${isLiked ? "fill-current" : ""} ${isLiking ? "animate-pulse" : ""}`} />
+                        <span>{likesCount}</span>
+                      </button>
+                    </div>
+                    <span className="text-xs lg:text-base">{new Date(post.createdAt).toLocaleDateString("ru-RU")}</span>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Thumbnail Gallery */}
-                {product.images.length > 1 && (
-                  <div className="flex space-x-2 overflow-x-auto pb-2">
-                    {product.images.map((image, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImageIndex(index)}
-                        className={`flex-shrink-0 w-16 h-16 lg:w-20 lg:h-20 rounded border-2 overflow-hidden ${
-                          index === currentImageIndex ? "border-blue-500" : "border-gray-200"
-                        }`}
-                      >
-                        <img
-                          src={image || "/placeholder.svg?height=64&width=64"}
-                          alt={`${product.name} ${index + 1}`}
-                          className="w-full h-full object-cover"
+            {/* Description */}
+            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+              <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+                <CardTitle className="text-base lg:text-2xl">Описание товара</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 lg:px-6">
+                <p className="text-gray-700 leading-relaxed text-sm lg:text-lg whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full" style={{ 
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  maxWidth: '100%'
+                }}>
+                  {post.description}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* AI Rating Details */}
+            {post.aiRating && post.aiExplanation && (
+              <Card className="border-2 border-blue-200 bg-blue-50/30 overflow-hidden hover:shadow-lg transition-shadow">
+                <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+                  <CardTitle className="flex items-center gap-2 lg:gap-3 text-sm lg:text-lg">
+                    <div className="w-6 h-6 lg:w-8 lg:h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                      <Star className="h-3 w-3 lg:h-4 lg:w-4 text-white fill-current" />
+                    </div>
+                    <span className="text-sm lg:text-base">Подробная оценка ИИ</span>
+                    <div className="flex items-center gap-1 lg:gap-2 ml-auto">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3 w-3 lg:h-4 lg:w-4 ${
+                            i < Math.floor(post.aiRating!) 
+                              ? "text-yellow-400 fill-current" 
+                              : "text-gray-300"
+                          }`}
                         />
-                      </button>
+                      ))}
+                      <span className="font-bold text-sm lg:text-lg ml-1">
+                        {post.aiRating!.toFixed(1)}
+                      </span>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 lg:px-6">
+                  <p className="text-gray-700 leading-relaxed text-sm lg:text-base break-words overflow-wrap-anywhere max-w-full" style={{ 
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    maxWidth: '100%'
+                  }}>
+                    {post.aiExplanation}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Defects */}
+            {post.defects.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50/30 overflow-hidden hover:shadow-lg transition-shadow">
+                <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+                  <CardTitle className="flex items-center gap-2 text-sm lg:text-lg text-orange-800">
+                    <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5" />
+                    Замеченные дефекты
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 lg:px-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+                    {post.defects.map((defect, index) => (
+                      <div key={index} className="flex gap-2 lg:gap-3 p-3 lg:p-4 bg-white rounded-lg border border-orange-200">
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5 text-orange-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-orange-900 mb-1 text-sm lg:text-base break-words overflow-wrap-anywhere" style={{ 
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                          }}>
+                            {defect.location}
+                          </h4>
+                          <p className="text-gray-700 text-xs lg:text-sm leading-relaxed break-words overflow-wrap-anywhere" style={{ 
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                          }}>
+                            {defect.description}
+                          </p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6">
+              {/* Seller Info */}
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+                  <CardTitle className="text-sm lg:text-lg">Продавец</CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 lg:px-6">
+                  <div className="flex items-start gap-3 lg:gap-4">
+                    <Avatar className="h-10 w-10 lg:h-14 lg:w-14">
+                      <AvatarImage src="/placeholder.svg" />
+                      <AvatarFallback className="text-sm lg:text-lg font-semibold">
+                        {post.sellerName?.charAt(0) || 'П'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm lg:text-lg text-gray-900">
+                        {post.sellerName}
+                      </h3>
+                      {post.sellerCity && (
+                        <div className="flex items-center gap-1 text-gray-600 mt-1">
+                          <MapPin className="h-3 w-3 lg:h-4 lg:w-4" />
+                          <span className="text-xs lg:text-sm">{post.sellerCity}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 text-amber-600">
+                        <span className="text-sm lg:text-lg">🥉</span>
+                        <span className="font-medium text-xs lg:text-sm">Новый продавец</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Product Info - takes 1 column on desktop */}
-              <div className="space-y-4">
-                {/* Basic Info */}
-                <div>
-                  <div className="flex items-start justify-between mb-2">
+              {/* Safety Info */}
+              <Card className="border-green-200 bg-green-50/30 overflow-hidden hover:shadow-lg transition-shadow">
+                <CardContent className="px-3 lg:px-6 py-3 lg:py-4">
+                  <div className="flex items-start gap-2 lg:gap-3">
+                    <div className="w-8 h-8 lg:w-10 lg:h-10 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Lock className="h-4 w-4 lg:h-5 lg:w-5 text-white" />
+                    </div>
                     <div className="flex-1">
-                      <h1 className="text-lg md:text-2xl lg:text-3xl font-bold pr-2">{product.name}</h1>
-                      <div className="flex items-center space-x-4 text-gray-600 mb-2 text-sm">
-                        <span className="font-medium">{product.brand}</span>
-                        <span>•</span>
-                        <span>Год покупки: {product.year}</span>
-                      </div>
+                      <h3 className="font-semibold text-green-900 mb-2 text-sm lg:text-base">
+                        Безопасная сделка
+                      </h3>
+                      <p className="text-green-800 text-xs lg:text-sm leading-relaxed">
+                        Ваши средства защищены. Оплата поступит продавцу только после получения и подтверждения товара с вашей стороны.
+                      </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => onToggleFavorite(product.id)}>
-                      <Heart
-                        className={`h-5 w-5 ${product.isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`}
-                      />
-                    </Button>
                   </div>
-                </div>
-
-                {/* Product Description */}
-                <div>
-                  <h3 className="font-semibold mb-2">Описание</h3>
-                  <p className="text-gray-700 text-sm leading-relaxed">{product.description}</p>
-                </div>
-
-                {/* Price */}
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xl md:text-3xl lg:text-4xl font-bold">
-                      {product.price.toLocaleString()} ₽
-                    </span>
-                    <Lock className="h-5 w-5 text-green-600" />
-                  </div>
-                  {product.originalPrice && (
-                    <span className="text-lg text-gray-400 line-through">
-                      {product.originalPrice.toLocaleString()} ₽
-                    </span>
-                  )}
-                </div>
-
-                {/* AI Rating */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm md:text-base lg:text-lg flex items-center space-x-2">
-                      <span>Оценка ИИ</span>
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${i < Math.floor(product.aiRating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                          />
-                        ))}
-                        <span className="ml-2 font-bold">{product.aiRating}</span>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <Badge variant="outline" className={getAiRatingColor(product.aiRating)}>
-                        {product.aiRecommendation}
-                      </Badge>
-                      <p className="text-sm text-gray-600 leading-relaxed">{product.aiExplanation}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Defects */}
-                {product.defects.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm md:text-base lg:text-lg flex items-center space-x-2">
-                        <AlertTriangle className="h-5 w-5 text-orange-500" />
-                        <span>Описание дефектов</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {product.defects.map((defect, index) => (
-                          <div key={index} className="flex space-x-3">
-                            <img
-                              src={defect.image || "/placeholder.svg?height=60&width=60"}
-                              alt={`Дефект ${index + 1}`}
-                              className="w-12 h-12 object-cover rounded border flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0 overflow-hidden">
-                              <p className="font-medium text-sm break-words">{defect.location}</p>
-                              <p className="text-sm text-gray-600 leading-relaxed break-words">{defect.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Seller Info */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm md:text-base lg:text-lg">Информация о продавце</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-4">
-                      <Avatar className="h-12 w-12 flex-shrink-0">
-                        <AvatarImage src={product.sellerAvatar || "/placeholder.svg"} />
-                        <AvatarFallback>{product.sellerName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">{product.sellerName}</p>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          {getTrustIcon(product.sellerTrust)}
-                          <span className="truncate">{getTrustLabel(product.sellerTrust)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 mt-1">
-                          <div className="flex items-center">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-3 w-3 ${i < Math.floor(product.sellerRating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-gray-600">
-                            {product.sellerRating} ({product.sellerReviews} отзывов)
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Escrow Info */}
-                <Card className="bg-green-50 border-green-200">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center space-x-2 text-green-800">
-                      <Lock className="h-5 w-5 flex-shrink-0" />
-                      <span className="font-medium">Безопасная сделка</span>
-                    </div>
-                    <p className="text-sm text-green-700 mt-2 leading-relaxed">
-                      Средства замораживаются до получения вами товара. Деньги переводятся продавцу только после вашего
-                      подтверждения.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-2">
-                  <Button className="flex-1">
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Добавить в корзину
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Написать продавцу
-                  </Button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   )
-}
+} 

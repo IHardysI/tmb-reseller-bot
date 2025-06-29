@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { useTelegramUser } from '@/hooks/useTelegramUser';
 import { api } from '../../convex/_generated/api';
-import { FullScreenLoader } from '@/components/shared/loader';
+import { FullScreenLoader } from '@/components/ui/loader';
 
 interface AuthGuardProps {
   children: React.ReactNode;

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Lock, Star, ShoppingCart, Award } from "lucide-react"
+import { Heart, Lock, Star, ShoppingCart, Award, Eye } from "lucide-react"
 import Image from "next/image"
 
 interface Product {
@@ -11,21 +11,19 @@ interface Product {
   images: string[]
   condition: string
   year: number
-  aiRating: number
-  aiRecommendation: string
-  aiExplanation: string
-  sellerTrust: "bronze" | "silver" | "gold"
-  sellerName: string
-  sellerAvatar: string
-  sellerRating: number
-  sellerReviews: number
+  aiRating?: number
+  aiRecommendation?: string
+  aiExplanation?: string
   isFavorite: boolean
   description: string
   defects: {
     description: string
-    image: string
     location: string
   }[]
+  sellerName?: string
+  sellerCity?: string
+  likesCount?: number
+  views?: number
 }
 
 interface ProductCardProps {
@@ -36,22 +34,12 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onProductClick, onToggleFavorite, priority = false }: ProductCardProps) {
-  const getTrustIcon = (trust: string) => {
-    const colors = {
-      bronze: "text-amber-600",
-      silver: "text-gray-500",
-      gold: "text-yellow-500",
-    }
-    return <Award className={`h-4 w-4 ${colors[trust as keyof typeof colors]}`} />
+  const getTrustIcon = () => {
+    return <Award className="h-4 w-4 text-amber-600" />
   }
 
-  const getTrustLabel = (trust: string) => {
-    const labels = {
-      bronze: "Бронза",
-      silver: "Серебро",
-      gold: "Золото",
-    }
-    return labels[trust as keyof typeof labels]
+  const getTrustLabel = () => {
+    return "Новый"
   }
 
   return (
@@ -96,26 +84,41 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
             <Lock className="h-2 w-2 text-green-600" />
           </div>
 
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center space-x-1">
-              <div className="flex items-center">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-2 w-2 ${i < Math.floor(product.aiRating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                  />
-                ))}
+          {product.aiRating && product.aiRecommendation && (
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-1">
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-2 w-2 ${i < Math.floor(product.aiRating!) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                    />
+                  ))}
+                </div>
+                <span className="text-green-600 text-xs truncate">{product.aiRecommendation}</span>
               </div>
-              <span className="text-green-600 text-xs truncate">{product.aiRecommendation}</span>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center space-x-1">
-              {getTrustIcon(product.sellerTrust)}
-              <span className="truncate">{getTrustLabel(product.sellerTrust)}</span>
+              {getTrustIcon()}
+              <span className="truncate">{getTrustLabel()}</span>
             </div>
-            <span className="text-gray-600 truncate">{product.sellerName}</span>
+            <span className="text-gray-600 truncate">{product.sellerName || 'Продавец'}</span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <Eye className="h-2 w-2" />
+                <span>{product.views || 0}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Heart className="h-2 w-2" />
+                <span>{product.likesCount || 0}</span>
+              </div>
+            </div>
           </div>
 
           <Button 

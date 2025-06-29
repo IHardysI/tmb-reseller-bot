@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { api } from "../../../../convex/_generated/api"
-import { FullScreenLoader } from "@/components/shared/loader"
+import { FullScreenLoader } from "@/components/ui/loader"
 
 interface OnboardingData {
   city: string
