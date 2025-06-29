@@ -32,9 +32,10 @@ interface ProductCardProps {
   product: Product
   onProductClick: (product: Product) => void
   onToggleFavorite: (productId: string) => void
+  priority?: boolean
 }
 
-export default function ProductCard({ product, onProductClick, onToggleFavorite }: ProductCardProps) {
+export default function ProductCard({ product, onProductClick, onToggleFavorite, priority = false }: ProductCardProps) {
   const getTrustIcon = (trust: string) => {
     const colors = {
       bronze: "text-amber-600",
@@ -66,6 +67,7 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite 
           width={400}
           height={300}
           className="w-full aspect-[4/3] object-cover"
+          priority={priority}
         />
         <Button
           variant="ghost"
