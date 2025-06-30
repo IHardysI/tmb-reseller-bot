@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,8 @@ interface Product {
   aiExplanation?: string
   isFavorite: boolean
   description: string
+  category: string
+  subcategory?: string
   defects: {
     description: string
     location: string
@@ -47,6 +49,7 @@ interface Product {
   sellerCity?: string
   likesCount?: number
   views?: number
+  isOwned?: boolean
 }
 
 function MarketplaceContent() {
@@ -56,32 +59,51 @@ function MarketplaceContent() {
     api.users.getUserByTelegramId, 
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
   )
+  const priceRangeData = useQuery(api.posts.getPriceRange)
+  const yearRangeData = useQuery(api.posts.getYearRange)
   
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
+  const deletePost = useMutation(api.posts.deletePost)
   
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("newest")
-  const [priceRange, setPriceRange] = useState<number[]>([0, 500000])
+  const [priceRange, setPriceRange] = useState<number[]>([])
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
-  const [yearRange, setYearRange] = useState<number[]>([2015, 2024])
+  const [yearRange, setYearRange] = useState<number[]>([])
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState("")
   const [distanceRadius, setDistanceRadius] = useState<number[]>([5])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editingPost, setEditingPost] = useState<Product | null>(null)
+
+  // Initialize ranges when data loads
+  useEffect(() => {
+    if (priceRangeData && priceRange.length === 0) {
+      setPriceRange([priceRangeData.min, priceRangeData.max])
+    }
+  }, [priceRangeData, priceRange.length])
+
+  useEffect(() => {
+    if (yearRangeData && yearRange.length === 0) {
+      setYearRange([yearRangeData.min, yearRangeData.max])
+    }
+  }, [yearRangeData, yearRange.length])
 
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = allPosts.map(post => ({
       id: post._id,
       name: post.name,
-      brand: post.brand,
+      brand: (post.brand || "Без бренда") as string,
       price: post.price,
       images: post.images,
       condition: post.condition,
       year: post.year,
       description: post.description,
+      category: post.category || "",
+      subcategory: post.subcategory,
       defects: post.defects.map(d => ({
         description: d.description,
         location: d.location,
@@ -94,6 +116,7 @@ function MarketplaceContent() {
       sellerCity: post.sellerCity,
       likesCount: post.likesCount,
       views: post.views,
+      isOwned: currentUser && post.telegramId === telegramUser?.userId || false,
     }))
 
     // Apply search filter
@@ -116,14 +139,18 @@ function MarketplaceContent() {
     }
 
     // Apply price range filter
-    filtered = filtered.filter(product => 
-      product.price >= priceRange[0] && product.price <= priceRange[1]
-    )
+    if (priceRange.length === 2) {
+      filtered = filtered.filter(product => 
+        product.price >= priceRange[0] && product.price <= priceRange[1]
+      )
+    }
 
     // Apply year range filter
-    filtered = filtered.filter(product => 
-      product.year >= yearRange[0] && product.year <= yearRange[1]
-    )
+    if (yearRange.length === 2) {
+      filtered = filtered.filter(product => 
+        product.year >= yearRange[0] && product.year <= yearRange[1]
+      )
+    }
 
     // Apply category filter (basic implementation)
     if (selectedCategories.length > 0) {
@@ -166,6 +193,21 @@ function MarketplaceContent() {
     } catch (error) {
       console.error("Error toggling favorite:", error)
     }
+  }
+
+  const handleDeletePost = async (productId: string) => {
+    if (!telegramUser?.userId) return
+    
+    try {
+      await deletePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+    } catch (error) {
+      console.error("Error deleting post:", error)
+    }
+  }
+
+  const handleEditPost = (product: Product) => {
+    setEditingPost(product)
+    setIsCreateDialogOpen(true)
   }
 
   return (
@@ -285,6 +327,8 @@ function MarketplaceContent() {
                   product={product}
                   onProductClick={(product) => setSelectedPostId(product.id as Id<"posts">)}
                   onToggleFavorite={toggleFavorite}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
                   priority={index === 0}
                 />
               ))}
@@ -296,11 +340,16 @@ function MarketplaceContent() {
           postId={selectedPostId}
           isOpen={selectedPostId !== null}
           onClose={() => setSelectedPostId(null)}
+          onEdit={handleEditPost}
         />
 
         <AddItemDialog
           isOpen={isCreateDialogOpen}
-          onClose={() => setIsCreateDialogOpen(false)}
+          onClose={() => {
+            setIsCreateDialogOpen(false)
+            setEditingPost(null)
+          }}
+          editingPost={editingPost}
         />
 
         <FloatingActionButton 

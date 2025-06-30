@@ -21,6 +21,7 @@ import {
   MapPin,
   X,
   Eye,
+  Edit,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
@@ -29,9 +30,10 @@ interface ProductDetailProps {
   postId: Id<"posts"> | null
   isOpen: boolean
   onClose: () => void
+  onEdit?: (post: any) => void
 }
 
-export default function ProductDetail({ postId, isOpen, onClose }: ProductDetailProps) {
+export default function ProductDetail({ postId, isOpen, onClose, onEdit }: ProductDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
   const telegramUser = useTelegramUser()
@@ -79,17 +81,25 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
   }
 
   const isLiked = currentUser && post.likedBy?.includes(currentUser._id) || false
+  const isOwned = currentUser && post.telegramId === telegramUser?.userId || false
   const likesCount = post.likesCount || 0
   const viewsCount = post.views || 0
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl! w-[95vw] h-[95vh] p-0 overflow-hidden">
-        <DialogHeader className="p-4 border-b bg-white sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold">
-              Детали товара
-            </DialogTitle>
+        <DialogHeader className="p-1 sm:p-3 border-b bg-white sticky top-0 z-10">
+          <div className="flex items-center justify-end gap-2">
+            {isOwned && onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(post)}
+                className="h-8 w-8"
+              >
+                <Edit className="h-4 w-4 text-blue-600" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -170,13 +180,13 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-2">
-              <Button size="sm" className="px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+            <div className="flex gap-2 w-full">
+              <Button size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
                 <ShoppingCart className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
                 <span className="hidden sm:inline">Добавить в корзину</span>
                 <span className="sm:hidden">В корзину</span>
               </Button>
-              <Button variant="outline" size="sm" className="px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+              <Button variant="outline" size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
                 <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
                 <span className="hidden sm:inline">Написать продавцу</span>
                 <span className="sm:hidden">Написать</span>
@@ -185,16 +195,25 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
 
             {/* Product Info */}
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 lg:p-8">
-                <div className="space-y-3 lg:space-y-6">
+              <CardContent className="px-4 lg:px-8">
+                <div className="space-y-3">
                   <div>
-                    <h1 className="font-bold text-xl lg:text-4xl leading-tight mb-2 lg:mb-4">{post.name}</h1>
-                    <div className="flex items-center gap-2 lg:gap-4 text-gray-600 text-sm lg:text-xl">
+                    <h1 className="font-bold text-xl lg:text-4xl leading-tight mb-2 lg:mb-4 mt-0!">{post.name}</h1>
+                    <div className="flex items-center gap-2 lg:gap-4 text-gray-600 text-sm lg:text-xl flex-wrap">
                       <span className="font-semibold text-blue-600 text-base lg:text-2xl">{post.brand}</span>
                       <span className="w-1 h-1 lg:w-2 lg:h-2 bg-gray-400 rounded-full"></span>
                       <span>{post.year} год</span>
                       <span className="w-1 h-1 lg:w-2 lg:h-2 bg-gray-400 rounded-full"></span>
                       <span className="capitalize">{post.condition}</span>
+                      {post.category && (
+                        <>
+                          <span className="w-1 h-1 lg:w-2 lg:h-2 bg-gray-400 rounded-full"></span>
+                          <Badge variant="secondary" className="text-xs lg:text-sm whitespace-nowrap">
+                            {post.category}
+                            {post.subcategory && ` • ${post.subcategory}`}
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -247,10 +266,10 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
 
             {/* Description */}
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-              <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+              <CardHeader className="px-3 lg:px-6">
                 <CardTitle className="text-base lg:text-2xl">Описание товара</CardTitle>
               </CardHeader>
-              <CardContent className="px-3 lg:px-6">
+              <CardContent className="px-4 lg:px-8">
                 <p className="text-gray-700 leading-relaxed text-sm lg:text-lg whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full" style={{ 
                   wordBreak: 'break-word',
                   overflowWrap: 'break-word',
@@ -339,7 +358,7 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6">
               {/* Seller Info */}
               <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardHeader className="px-3 lg:px-6 py-2 lg:py-3">
+                <CardHeader className="px-3 lg:px-6 lg:py-3">
                   <CardTitle className="text-sm lg:text-lg">Продавец</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 lg:px-6">
@@ -371,7 +390,7 @@ export default function ProductDetail({ postId, isOpen, onClose }: ProductDetail
 
               {/* Safety Info */}
               <Card className="border-green-200 bg-green-50/30 overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="px-3 lg:px-6 py-3 lg:py-4">
+                <CardContent className="px-3 lg:px-6 lg:py-4">
                   <div className="flex items-start gap-2 lg:gap-3">
                     <div className="w-8 h-8 lg:w-10 lg:h-10 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <Lock className="h-4 w-4 lg:h-5 lg:w-5 text-white" />

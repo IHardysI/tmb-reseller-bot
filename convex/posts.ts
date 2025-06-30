@@ -9,7 +9,7 @@ export const createPost = mutation({
   args: {
     telegramId: v.number(),
     name: v.string(),
-    brand: v.string(),
+    brand: v.optional(v.string()),
     price: v.number(),
     condition: v.string(),
     year: v.number(),
@@ -37,6 +37,10 @@ export const createPost = mutation({
         return await ctx.storage.getUrl(storageId);
       })
     );
+
+    if (args.brand && args.brand.trim()) {
+      await createOrUpdateBrand(ctx, args.brand.trim());
+    }
 
     const postId = await ctx.db.insert("posts", {
       userId: user._id,
@@ -156,6 +160,62 @@ export const deletePost = mutation({
         postsCount: Math.max(0, currentPostsCount - 1),
       });
     }
+  },
+});
+
+export const updatePost = mutation({
+  args: {
+    postId: v.id("posts"),
+    telegramId: v.number(),
+    name: v.string(),
+    brand: v.optional(v.string()),
+    price: v.number(),
+    condition: v.string(),
+    year: v.number(),
+    description: v.string(),
+    category: v.string(),
+    subcategory: v.optional(v.string()),
+    images: v.array(v.id("_storage")),
+    defects: v.array(v.object({
+      description: v.string(),
+      location: v.string(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    if (post.telegramId !== args.telegramId) {
+      throw new Error("Not authorized to update this post");
+    }
+
+    const imageUrls = await Promise.all(
+      args.images.map(async (storageId) => {
+        return await ctx.storage.getUrl(storageId);
+      })
+    );
+
+    if (args.brand && args.brand.trim()) {
+      await createOrUpdateBrand(ctx, args.brand.trim());
+    }
+
+    await ctx.db.patch(args.postId, {
+      name: args.name,
+      brand: args.brand,
+      price: args.price,
+      condition: args.condition,
+      year: args.year,
+      description: args.description,
+      category: args.category,
+      subcategory: args.subcategory,
+      images: imageUrls.filter(url => url !== null) as string[],
+      defects: args.defects,
+      updatedAt: Date.now(),
+    });
+
+    return args.postId;
   },
 });
 
@@ -285,4 +345,92 @@ export const getPostById = query({
       sellerCity: user.city,
     };
   },
-}); 
+});
+
+export const getBrands = query({
+  args: {},
+  handler: async (ctx) => {
+    const brands = await ctx.db
+      .query("brands")
+      .withIndex("by_posts_count")
+      .order("desc")
+      .collect();
+
+    return brands.map(brand => brand.name);
+  },
+});
+
+export const getPopularBrands = query({
+  args: {},
+  handler: async (ctx) => {
+    const brands = await ctx.db
+      .query("brands")
+      .withIndex("by_posts_count")
+      .order("desc")
+      .take(20);
+
+    return brands;
+  },
+});
+
+export const getPriceRange = query({
+  args: {},
+  handler: async (ctx) => {
+    const posts = await ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    if (posts.length === 0) {
+      return { min: 0, max: 500000 };
+    }
+
+    const prices = posts.map(post => post.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices)
+    };
+  },
+});
+
+export const getYearRange = query({
+  args: {},
+  handler: async (ctx) => {
+    const posts = await ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    if (posts.length === 0) {
+      return { min: 2015, max: 2024 };
+    }
+
+    const years = posts.map(post => post.year);
+    return {
+      min: Math.min(...years),
+      max: Math.max(...years)
+    };
+  },
+});
+
+const createOrUpdateBrand = async (ctx: any, brandName: string) => {
+  const existingBrand = await ctx.db
+    .query("brands")
+    .withIndex("by_name", (q: any) => q.eq("name", brandName))
+    .first();
+
+  if (existingBrand) {
+    await ctx.db.patch(existingBrand._id, {
+      postsCount: existingBrand.postsCount + 1,
+      updatedAt: Date.now(),
+    });
+    return existingBrand._id;
+  } else {
+    return await ctx.db.insert("brands", {
+      name: brandName,
+      postsCount: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+}; 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, Plus, Camera, Upload } from "lucide-react"
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { Id } from "../../../../convex/_generated/dataModel"
@@ -19,11 +19,24 @@ import Image from "next/image"
 interface AddItemDialogProps {
   isOpen: boolean
   onClose: () => void
+  editingPost?: {
+    id: string
+    name: string
+    brand: string
+    price: number
+    images: string[]
+    condition: string
+    year: number
+    description: string
+    category: string
+    subcategory?: string
+    defects: { description: string; location: string }[]
+  } | null
 }
 
 interface ItemFormData {
   name: string
-  brand: string
+  brand: string | null
   price: string
   condition: string
   year: string
@@ -42,7 +55,7 @@ interface ItemFormData {
   }>
 }
 
-const brands = ["Louis Vuitton", "Chanel", "Gucci", "Prada", "Nike", "Adidas", "Rolex", "Cartier", "Другой"]
+
 const conditions = ["Новое", "Как новое", "С дефектами"]
 const categories = {
   Одежда: ["Женская одежда", "Мужская одежда", "Детская одежда"],
@@ -54,15 +67,19 @@ const categories = {
   "Спорт и отдых": ["Спортивная одежда", "Спортивное оборудование", "Туризм"],
 }
 
-export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
+
+
+export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemDialogProps) {
   const telegramUser = useTelegramUser()
   const createPost = useMutation(api.posts.createPost)
+  const updatePost = useMutation(api.posts.updatePost)
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl)
+  const brands = useQuery(api.posts.getBrands) || []
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState<ItemFormData>({
     name: "",
-    brand: "",
+    brand: null,
     price: "",
     condition: "",
     year: "",
@@ -75,13 +92,65 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
 
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showCustomBrand, setShowCustomBrand] = useState(false)
   const totalSteps = 4
+
+  // Initialize form with editing data
+  useEffect(() => {
+    if (editingPost) {
+      setFormData({
+        name: editingPost.name,
+        brand: editingPost.brand === "Без бренда" ? null : editingPost.brand,
+        price: editingPost.price.toString(),
+        condition: editingPost.condition,
+        year: editingPost.year.toString(),
+        description: editingPost.description,
+        category: editingPost.category || "",
+        subcategory: editingPost.subcategory || "",
+        images: editingPost.images.map((url, index) => ({
+          file: new File([], `existing-${index}`),
+          preview: url,
+          storageId: `existing-${index}` as Id<"_storage">,
+          uploading: false
+        })),
+        defects: editingPost.defects,
+      })
+      setShowCustomBrand(editingPost.brand !== "Без бренда" && !brands.includes(editingPost.brand))
+    } else {
+      setFormData({
+        name: "",
+        brand: null,
+        price: "",
+        condition: "",
+        year: "",
+        description: "",
+        category: "",
+        subcategory: "",
+        images: [],
+        defects: [],
+      })
+      setShowCustomBrand(false)
+    }
+  }, [editingPost, brands])
 
   const handleInputChange = (field: keyof ItemFormData, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
+  }
+
+  const handleBrandChange = (value: string) => {
+    if (value === "custom") {
+      setShowCustomBrand(true)
+      setFormData(prev => ({ ...prev, brand: "" }))
+    } else if (value === "no-brand") {
+      setShowCustomBrand(false)
+      setFormData(prev => ({ ...prev, brand: null }))
+    } else {
+      setShowCustomBrand(false)
+      setFormData(prev => ({ ...prev, brand: value }))
+    }
   }
 
   const handleFileSelect = async (files: FileList | null) => {
@@ -188,7 +257,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
     
     setFormData({
       name: "",
-      brand: "",
+      brand: null,
       price: "",
       condition: "",
       year: "",
@@ -198,6 +267,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
       images: [],
       defects: [],
     })
+    setShowCustomBrand(false)
     setCurrentStep(1)
   }
 
@@ -207,42 +277,71 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
       return
     }
 
-    const uploadedImages = formData.images.filter(img => img.storageId && !img.uploading)
-    if (uploadedImages.length === 0) {
-      console.error("No uploaded images found")
+    const hasValidImages = editingPost 
+      ? formData.images.length > 0  // For editing, just need images
+      : formData.images.some(img => img.storageId && !img.uploading)  // For creating, need uploaded images
+
+    if (!hasValidImages) {
+      console.error("No valid images found")
       return
     }
 
     setIsSubmitting(true)
     
     try {
-      await createPost({
-        telegramId: telegramUser.userId,
-        name: formData.name,
-        brand: formData.brand,
-        price: parseInt(formData.price),
-        condition: formData.condition,
-        year: parseInt(formData.year),
-        description: formData.description,
-        category: formData.category,
-        subcategory: formData.subcategory || undefined,
-        images: uploadedImages.map(img => img.storageId!).filter(Boolean) as Id<"_storage">[],
-        defects: formData.defects.filter(defect => defect.description && defect.location),
-      })
+      if (editingPost) {
+        // For editing, we need to handle existing images differently
+        const imageStorageIds = formData.images
+          .filter(img => img.storageId && !img.storageId.toString().startsWith('existing-'))
+          .map(img => img.storageId!) as Id<"_storage">[]
+        
+        await updatePost({
+          postId: editingPost.id as Id<"posts">,
+          telegramId: telegramUser.userId,
+          name: formData.name,
+          brand: formData.brand ?? undefined,
+          price: parseInt(formData.price),
+          condition: formData.condition,
+          year: parseInt(formData.year),
+          description: formData.description,
+          category: formData.category,
+          subcategory: formData.subcategory || undefined,
+          images: imageStorageIds,
+          defects: formData.defects.filter(defect => defect.description && defect.location),
+        })
+        console.log("Post updated successfully!")
+      } else {
+        const uploadedImages = formData.images.filter(img => img.storageId && !img.uploading)
+        await createPost({
+          telegramId: telegramUser.userId,
+          name: formData.name,
+          brand: formData.brand ?? undefined,
+          price: parseInt(formData.price),
+          condition: formData.condition,
+          year: parseInt(formData.year),
+          description: formData.description,
+          category: formData.category,
+          subcategory: formData.subcategory || undefined,
+          images: uploadedImages.map(img => img.storageId!).filter(Boolean) as Id<"_storage">[],
+          defects: formData.defects.filter(defect => defect.description && defect.location),
+        })
+        console.log("Post created successfully!")
+      }
       
-      console.log("Post created successfully!")
       onClose()
       resetForm()
     } catch (error) {
-      console.error("Error creating post:", error)
+      console.error("Error saving post:", error)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const canProceedStep1 = formData.name && formData.brand && formData.category
+  const canProceedStep1 = formData.name && (formData.brand === null || (formData.brand && formData.brand.trim() !== "")) && formData.category
   const canProceedStep2 = formData.price && formData.condition && formData.year
-  const canProceedStep3 = formData.images.some(img => img.storageId && !img.uploading)
+  const canProceedStep3 = editingPost 
+    ? formData.images.length > 0 
+    : formData.images.some(img => img.storageId && !img.uploading)
   const canSubmit = canProceedStep1 && canProceedStep2 && canProceedStep3 && formData.description
 
   return (
@@ -255,8 +354,10 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
           overflowWrap: 'break-word' 
         }}
       >
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle className="text-xl font-bold">Добавить товар на продажу</DialogTitle>
+        <DialogHeader className="p-6 pb-3 border-b">
+          <DialogTitle className="text-xl font-bold">
+            {editingPost ? "Редактировать товар" : "Добавить товар на продажу"}
+          </DialogTitle>
           <div className="flex items-center space-x-2 mt-4">
             {Array.from({ length: totalSteps }).map((_, index) => (
               <div
@@ -275,7 +376,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
           style={{ overflowX: 'hidden' }}
         >
           <div 
-            className="py-4"
+            className=""
             style={{ 
               wordWrap: 'break-word', 
               overflowWrap: 'break-word',
@@ -290,7 +391,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                   <h3 className="text-lg font-semibold mb-4">Основная информация</h3>
 
                   <div className="space-y-4">
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="name">Название товара *</Label>
                       <Input
                         id="name"
@@ -308,23 +409,54 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                       />
                     </div>
 
-                    <div>
-                      <Label htmlFor="brand">Бренд *</Label>
-                      <Select value={formData.brand} onValueChange={(value) => handleInputChange("brand", value)}>
-                        <SelectTrigger className="w-full" style={{ width: '100%', maxWidth: '100%', minWidth: '0' }}>
-                          <SelectValue placeholder="Выберите бренд" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {brands.map((brand) => (
-                            <SelectItem key={brand} value={brand}>
-                              {brand}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="brand">Бренд</Label>
+                      
+                      {!showCustomBrand ? (
+                        <Select 
+                          value={formData.brand === null ? "no-brand" : formData.brand || ""} 
+                          onValueChange={handleBrandChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Выберите бренд" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no-brand">Без бренда</SelectItem>
+                            <SelectItem value="custom">Другой бренд</SelectItem>
+                            {brands.map((brand) => (
+                              <SelectItem key={brand} value={brand}>
+                                {brand}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div>
+                          <Input
+                            placeholder="Введите название бренда"
+                            value={formData.brand || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value || null }))}
+                            className="w-full"
+                          />
+                          <div className="flex justify-end mt-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowCustomBrand(false)
+                                setFormData(prev => ({ ...prev, brand: null }))
+                              }}
+                              className="text-xs text-gray-500 hover:text-gray-700 h-6 px-2"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Отменить
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="category">Категория *</Label>
                       <Select
                         value={formData.category}
@@ -347,7 +479,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                     </div>
 
                     {formData.category && (
-                      <div>
+                      <div className="flex flex-col gap-2">
                         <Label htmlFor="subcategory">Подкатегория</Label>
                         <Select
                           value={formData.subcategory}
@@ -378,7 +510,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                   <h3 className="text-lg font-semibold mb-4">Цена и состояние</h3>
 
                   <div className="space-y-4">
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="price">Цена продажи (₽) *</Label>
                       <Input
                         id="price"
@@ -395,7 +527,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                       />
                     </div>
 
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="condition">Состояние *</Label>
                       <Select
                         value={formData.condition}
@@ -414,14 +546,14 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                       </Select>
                     </div>
 
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="year">Год покупки *</Label>
                       <Select value={formData.year} onValueChange={(value) => handleInputChange("year", value)}>
                         <SelectTrigger className="w-full" style={{ width: '100%', maxWidth: '100%', minWidth: '0' }}>
                           <SelectValue placeholder="Выберите год" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from({ length: 10 }, (_, i) => 2024 - i).map((year) => (
+                          {Array.from({ length: new Date().getFullYear() - 1980 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                             <SelectItem key={year} value={year.toString()}>
                               {year}
                             </SelectItem>
@@ -441,7 +573,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                   <h3 className="text-lg font-semibold mb-4">Фотографии и дефекты</h3>
 
                   <div className="space-y-6">
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label>Фотографии товара *</Label>
                       <p className="text-xs text-gray-500 mb-3">Добавьте минимум 1 фотографию (макс. 6)</p>
 
@@ -493,7 +625,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between mb-3">
                         <Label>Описание дефектов</Label>
                         <Button variant="outline" size="sm" onClick={addDefect}>
@@ -517,7 +649,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                                 </Button>
                               </div>
                               <div className="space-y-3">
-                                <div>
+                                <div className="flex flex-col gap-2">
                                   <Label>Расположение</Label>
                                   <Input
                                     placeholder="Например: Нижние углы сумки"
@@ -531,7 +663,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                                     }}
                                   />
                                 </div>
-                                <div>
+                                <div className="flex flex-col gap-2">
                                   <Label>Описание</Label>
                                   <Textarea
                                     placeholder="Например: Небольшие потертости на углах"
@@ -568,7 +700,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                   <h3 className="text-lg font-semibold mb-4">Описание и проверка</h3>
 
                   <div className="space-y-6">
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="description">Подробное описание *</Label>
                       <Textarea
                         id="description"
@@ -589,7 +721,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                       />
                     </div>
 
-                    <div>
+                    <div className="flex flex-col gap-2">
                       <h4 className="font-medium mb-3">Проверьте информацию</h4>
                       <Card>
                         <CardContent className="p-4 space-y-3">
@@ -616,7 +748,7 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
                                 hyphens: 'auto'
                               }}
                             >
-                              {formData.brand}
+                              {formData.brand || "Без бренда"}
                             </span>
                           </div>
                           <div className="flex justify-between items-start gap-2">
@@ -675,7 +807,10 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
               </Button>
             ) : (
               <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
-                {isSubmitting ? "Публикуем..." : "Опубликовать товар"}
+                {isSubmitting 
+                  ? (editingPost ? "Сохраняем..." : "Публикуем...") 
+                  : (editingPost ? "Сохранить изменения" : "Опубликовать товар")
+                }
               </Button>
             )}
           </div>
@@ -683,4 +818,4 @@ export default function AddItemDialog({ isOpen, onClose }: AddItemDialogProps) {
       </DialogContent>
     </Dialog>
   )
-} 
+}  

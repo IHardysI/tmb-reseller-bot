@@ -16,11 +16,19 @@ export default defineSchema({
     postsCount: v.optional(v.number()),
   }).index("by_telegram_id", ["telegramId"]),
   
+  brands: defineTable({
+    name: v.string(),
+    postsCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_name", ["name"])
+    .index("by_posts_count", ["postsCount"]),
+  
   posts: defineTable({
     userId: v.id("users"),
     telegramId: v.number(),
     name: v.string(),
-    brand: v.string(),
+    brand: v.optional(v.string()),
     price: v.number(),
     condition: v.string(),
     year: v.number(),

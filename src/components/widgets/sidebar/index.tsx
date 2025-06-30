@@ -26,15 +26,8 @@ import {
   X,
   MapPin,
 } from "lucide-react"
-
-const brands = [
-  "Louis Vuitton", "Chanel", "Gucci", "Prada", "Hermès", "Dior", "Balenciaga", "Bottega Veneta",
-  "Saint Laurent", "Valentino", "Givenchy", "Versace", "Fendi", "Céline", "Loewe", "Burberry",
-  "Nike", "Adidas", "Jordan", "Yeezy", "Off-White", "Supreme", "Stone Island", "Moncler",
-  "Canada Goose", "The North Face", "Patagonia", "Arc'teryx", "Rolex", "Cartier", "Omega",
-  "TAG Heuer", "Breitling", "Patek Philippe", "Audemars Piguet", "Vacheron Constantin",
-  "Jaeger-LeCoultre", "IWC", "Chopard", "Bulgari", "Tiffany & Co.", "Van Cleef & Arpels"
-]
+import { useQuery } from "convex/react"
+import { api } from "../../../../convex/_generated/api"
 
 const conditions = [
   "Новое",
@@ -124,9 +117,16 @@ export function AppSidebar({
   distanceRadius,
   setDistanceRadius,
 }: SidebarProps) {
+  const brands = useQuery(api.posts.getBrands) || []
+  const popularBrands = useQuery(api.posts.getPopularBrands) || []
+  const priceRangeData = useQuery(api.posts.getPriceRange)
+  const yearRangeData = useQuery(api.posts.getYearRange)
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [brandSearch, setBrandSearch] = useState("")
   const { isMobile } = useSidebar()
+
+  const defaultPriceRange = priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
+  const defaultYearRange = yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand])
@@ -151,10 +151,10 @@ export function AppSidebar({
   }
 
   const resetAllFilters = () => {
-    setPriceRange([0, 500000])
+    setPriceRange(defaultPriceRange)
     setSelectedBrands([])
     setSelectedConditions([])
-    setYearRange([2015, 2024])
+    setYearRange(defaultYearRange)
     setSelectedCategories([])
     setSelectedCity("")
     setDistanceRadius([5])
@@ -165,16 +165,16 @@ export function AppSidebar({
     selectedBrands.length > 0 ||
     selectedConditions.length > 0 ||
     selectedCategories.length > 0 ||
-    priceRange[0] > 0 ||
-    priceRange[1] < 500000 ||
-    yearRange[0] > 2015 ||
-    yearRange[1] < 2024 ||
+    (priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1])) ||
+    (yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1])) ||
     selectedCity.length > 0 ||
     distanceRadius[0] !== 5
 
-  const filteredBrands = brands.filter(brand => 
-    brand.toLowerCase().includes(brandSearch.toLowerCase())
-  )
+  const filteredBrands = brandSearch 
+    ? brands.filter(brand => 
+        brand.toLowerCase().includes(brandSearch.toLowerCase())
+      ).slice(0, 5)
+    : brands.slice(0, 3)
 
   return (
     <Sidebar>
@@ -234,15 +234,15 @@ export function AppSidebar({
                         label: `${category}`,
                         onRemove: () => setSelectedCategories(selectedCategories.filter(c => c !== category))
                       })),
-                      ...((priceRange[0] > 0 || priceRange[1] < 500000) ? [{
+                      ...(priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1]) ? [{
                         type: 'price',
                         label: `${priceRange[0].toLocaleString()}-${priceRange[1].toLocaleString()} ₽`,
-                        onRemove: () => setPriceRange([0, 500000])
+                        onRemove: () => setPriceRange(defaultPriceRange)
                       }] : []),
-                      ...((yearRange[0] > 2015 || yearRange[1] < 2024) ? [{
+                      ...(yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1]) ? [{
                         type: 'year',
                         label: `${yearRange[0]}-${yearRange[1]}`,
-                        onRemove: () => setYearRange([2015, 2024])
+                        onRemove: () => setYearRange(defaultYearRange)
                       }] : []),
                       ...(selectedCity.length > 0 ? [{
                         type: 'city',
@@ -341,7 +341,7 @@ export function AppSidebar({
                   <div className="relative mb-4">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="Поиск бренда..."
+                      placeholder={brands.length > 3 ? `Поиск среди ${brands.length} брендов...` : "Поиск бренда..."}
                       value={brandSearch}
                       onChange={(e) => setBrandSearch(e.target.value)}
                       className="pl-10 h-8 text-sm bg-white"
@@ -349,21 +349,48 @@ export function AppSidebar({
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {filteredBrands.length > 0 ? (
-                      filteredBrands.map((brand) => (
-            <div key={brand} className="flex items-center gap-2">
-              <Checkbox
-                id={brand}
-                checked={selectedBrands.includes(brand)}
-                onCheckedChange={() => toggleBrand(brand)}
-              />
-              <Label htmlFor={brand} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
-                {brand}
-              </Label>
-            </div>
-                      ))
+                      filteredBrands.map((brand) => {
+                        const brandData = popularBrands.find(b => b.name === brand);
+                        return (
+                          <div key={brand} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1">
+                              <Checkbox
+                                id={brand}
+                                checked={selectedBrands.includes(brand)}
+                                onCheckedChange={() => toggleBrand(brand)}
+                              />
+                              <Label htmlFor={brand} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
+                                {brand}
+                              </Label>
+                            </div>
+                            {brandData && (
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                                {brandData.postsCount}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })
                     ) : (
-                      <div className="text-sm text-gray-500 text-center py-2">
-                        Бренд не найден
+                      <div className="text-sm text-gray-500 text-center py-4">
+                        {brandSearch ? (
+                          <div>
+                            <span className="block">Бренд не найден</span>
+                            <span className="text-xs mt-1 block">Попробуйте другой запрос</span>
+                          </div>
+                        ) : brands.length === 0 ? (
+                          <div>
+                            <span className="block">Пока нет брендов</span>
+                            <span className="text-xs mt-1 block">Бренды появятся после добавления товаров</span>
+                          </div>
+                        ) : brands.length > 3 ? (
+                          <div>
+                            <span className="block text-xs text-gray-400">Показаны топ-3 бренда</span>
+                            <span className="text-xs mt-1 block">Используйте поиск для других</span>
+                          </div>
+                        ) : (
+                          "Загрузка брендов..."
+                        )}
                       </div>
                     )}
                   </div>
@@ -391,20 +418,26 @@ export function AppSidebar({
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-        <div className="px-2">
-          <Slider 
-            value={priceRange} 
-            onValueChange={setPriceRange} 
-                      defaultValue={[0, 500000]}
-            min={0}
-            max={500000} 
-            step={5000} 
-            className="mb-4"
-          />
-          <div className="flex justify-between text-sm text-gray-600 font-medium">
-            <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0].toLocaleString()} ₽</span>
-            <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1].toLocaleString()} ₽</span>
-          </div>
+        <div className="">
+                                  {priceRangeData ? (
+              <>
+                <Slider 
+                  value={priceRange.length === 2 ? priceRange : defaultPriceRange} 
+                  onValueChange={setPriceRange} 
+                  defaultValue={defaultPriceRange}
+                  min={defaultPriceRange[0]}
+                  max={defaultPriceRange[1]} 
+                  step={Math.max(100, Math.min(1000, Math.round((defaultPriceRange[1] - defaultPriceRange[0]) / 200)))} 
+                  className="mb-4"
+                />
+                <div className="flex justify-between text-sm text-gray-600 font-medium">
+                  <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0]?.toLocaleString() || '0'} ₽</span>
+                  <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1]?.toLocaleString() || '0'} ₽</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона цен...</div>
+            )}
         </div>
       </div>
               </SidebarGroupContent>
@@ -442,20 +475,26 @@ export function AppSidebar({
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-        <div className="px-2">
-          <Slider 
-            value={yearRange} 
-            onValueChange={setYearRange} 
-                      defaultValue={[2015, 2024]}
-            min={2015} 
-            max={2024} 
-            step={1} 
-            className="mb-4"
-          />
-          <div className="flex justify-between text-sm text-gray-600 font-medium">
-            <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0]}</span>
-            <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1]}</span>
-          </div>
+        <div className="">
+                                  {yearRangeData ? (
+              <>
+                <Slider 
+                  value={yearRange.length === 2 ? yearRange : defaultYearRange} 
+                  onValueChange={setYearRange} 
+                  defaultValue={defaultYearRange}
+                  min={defaultYearRange[0]} 
+                  max={defaultYearRange[1]} 
+                  step={1} 
+                  className="mb-4"
+                />
+                <div className="flex justify-between text-sm text-gray-600 font-medium">
+                  <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0] || 2015}</span>
+                  <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1] || 2024}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона лет...</div>
+            )}
         </div>
       </div>
               </SidebarGroupContent>

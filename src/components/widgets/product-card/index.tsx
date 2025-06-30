@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Lock, Star, ShoppingCart, Award, Eye } from "lucide-react"
+import { Heart, Lock, Star, ShoppingCart, Award, Eye, Edit, Trash2 } from "lucide-react"
 import Image from "next/image"
 
 interface Product {
@@ -16,6 +16,8 @@ interface Product {
   aiExplanation?: string
   isFavorite: boolean
   description: string
+  category: string
+  subcategory?: string
   defects: {
     description: string
     location: string
@@ -24,16 +26,19 @@ interface Product {
   sellerCity?: string
   likesCount?: number
   views?: number
+  isOwned?: boolean
 }
 
 interface ProductCardProps {
   product: Product
   onProductClick: (product: Product) => void
   onToggleFavorite: (productId: string) => void
+  onEdit?: (product: Product) => void
+  onDelete?: (productId: string) => void
   priority?: boolean
 }
 
-export default function ProductCard({ product, onProductClick, onToggleFavorite, priority = false }: ProductCardProps) {
+export default function ProductCard({ product, onProductClick, onToggleFavorite, onEdit, onDelete, priority = false }: ProductCardProps) {
   const getTrustIcon = () => {
     return <Award className="h-4 w-4 text-amber-600" />
   }
@@ -57,19 +62,46 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
           className="w-full aspect-[4/3] object-cover"
           priority={priority}
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleFavorite(product.id)
-          }}
-        >
-          <Heart
-            className={`h-4 w-4 ${product.isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`}
-          />
-        </Button>
+        {product.isOwned ? (
+          <div className="absolute top-2 right-2 flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="bg-white/80 hover:bg-white h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit?.(product)
+              }}
+            >
+              <Edit className="h-4 w-4 text-blue-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="bg-white/80 hover:bg-white h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete?.(product.id)
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-red-600" />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite(product.id)
+            }}
+          >
+            <Heart
+              className={`h-4 w-4 ${product.isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`}
+            />
+          </Button>
+        )}
       </div>
 
       <CardContent className="p-2">
