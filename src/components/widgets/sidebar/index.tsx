@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react"
+"use client"
+
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -125,36 +127,54 @@ export function AppSidebar({
   const [brandSearch, setBrandSearch] = useState("")
   const { isMobile } = useSidebar()
   
-  // Add scroll position preservation
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [scrollPosition, setScrollPosition] = useState(0)
-
-  // Save scroll position when filters change
-  useEffect(() => {
-    const saveScrollPosition = () => {
-      if (scrollRef.current) {
-        setScrollPosition(scrollRef.current.scrollTop)
-      }
-    }
-
-    const timeoutId = setTimeout(saveScrollPosition, 100)
-    return () => clearTimeout(timeoutId)
-  }, [selectedBrands, selectedConditions, selectedCategories, priceRange, yearRange])
+  // Better scroll position preservation
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const preservedScrollTop = useRef<number>(0)
+  const isRestoringScroll = useRef<boolean>(false)
+  const restoreTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const defaultPriceRange = priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
   const defaultYearRange = yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
 
+  // Save scroll position before filter changes
+  useEffect(() => {
+    if (scrollAreaRef.current && !isRestoringScroll.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollContainer) {
+        preservedScrollTop.current = scrollContainer.scrollTop
+      }
+    }
+  }, [selectedBrands, selectedConditions, selectedCategories, priceRange, yearRange, selectedCity, distanceRadius])
+
   // Restore scroll position after content updates
   useEffect(() => {
-    if (scrollRef.current && scrollPosition > 0) {
-      const timeoutId = setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollPosition
-        }
-      }, 50)
-      return () => clearTimeout(timeoutId)
+    if (restoreTimeoutRef.current) {
+      clearTimeout(restoreTimeoutRef.current)
     }
-  }, [brands, popularBrands, scrollPosition])
+
+    if (scrollAreaRef.current && preservedScrollTop.current > 0) {
+      restoreTimeoutRef.current = setTimeout(() => {
+        if (scrollAreaRef.current) {
+          isRestoringScroll.current = true
+          const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+          if (scrollContainer) {
+            requestAnimationFrame(() => {
+              scrollContainer.scrollTop = preservedScrollTop.current
+              setTimeout(() => {
+                isRestoringScroll.current = false
+              }, 50)
+            })
+          }
+        }
+      }, 100)
+    }
+
+    return () => {
+      if (restoreTimeoutRef.current) {
+        clearTimeout(restoreTimeoutRef.current)
+      }
+    }
+  }, [brands, popularBrands])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand])
@@ -220,164 +240,129 @@ export function AppSidebar({
         )}
       </SidebarHeader>
       
-                    <SidebarContent className="scrollbar-hide">
+      <SidebarContent className="p-0">
         <ScrollArea 
+          ref={scrollAreaRef} 
           className="h-full" 
-          ref={scrollRef}
           style={{ 
             position: 'relative',
-            contain: 'layout style paint',
-            willChange: 'scroll-position'
+            contain: 'layout style',
+            overflow: 'hidden'
           }}
         >
-          <div 
-            className="py-4 space-y-6 px-6"
-            style={{ 
-              minHeight: '100%',
-              contain: 'layout'
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+          <div className="p-6 space-y-6">
+            {/* Filters Header */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center flex-shrink-0">
                 <SlidersHorizontal className="h-4 w-4 mr-2 text-gray-600" />
-                <span className="font-semibold text-gray-900">Фильтры</span>
+                <span className="font-semibold text-gray-900 text-sm">Фильтры</span>
               </div>
               {hasActiveFilters && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={resetAllFilters}
-                  className="border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 text-red-700 hover:text-red-800 text-xs px-3 py-2 font-medium shadow-sm transition-all duration-200"
+                  className="border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 text-red-700 hover:text-red-800 text-xs px-2 py-1 h-7 font-medium shadow-sm transition-all duration-200 flex-shrink-0"
                 >
-                  <RotateCcw className="h-4 w-4 mr-1.5" />
-                  Сбросить всё
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Очистить
                 </Button>
               )}
             </div>
 
-            {/* Active Filters */}
+            {/* Active Filters - Compact */}
             {hasActiveFilters && (
               <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">Активные фильтры:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(() => {
-                    const allFilters = [
-                      ...selectedBrands.map((brand) => ({
-                        type: 'brand',
-                        label: `${brand}`,
-                        onRemove: () => setSelectedBrands(selectedBrands.filter(b => b !== brand))
-                      })),
-                      ...selectedConditions.map((condition) => ({
-                        type: 'condition',
-                        label: `${condition}`,
-                        onRemove: () => setSelectedConditions(selectedConditions.filter(c => c !== condition))
-                      })),
-                      ...selectedCategories.map((category) => ({
-                        type: 'category',
-                        label: `${category}`,
-                        onRemove: () => setSelectedCategories(selectedCategories.filter(c => c !== category))
-                      })),
-                      ...(priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1]) ? [{
-                        type: 'price',
-                        label: `${priceRange[0].toLocaleString()}-${priceRange[1].toLocaleString()} ₽`,
-                        onRemove: () => setPriceRange(defaultPriceRange)
-                      }] : []),
-                      ...(yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1]) ? [{
-                        type: 'year',
-                        label: `${yearRange[0]}-${yearRange[1]}`,
-                        onRemove: () => setYearRange(defaultYearRange)
-                      }] : []),
-                      ...(selectedCity.length > 0 ? [{
-                        type: 'city',
-                        label: `${selectedCity}`,
-                        onRemove: () => setSelectedCity("")
-                      }] : []),
-                      ...(distanceRadius[0] !== 5 ? [{
-                        type: 'distance',
-                        label: `${distanceRadius[0]} км`,
-                        onRemove: () => setDistanceRadius([5])
-                      }] : [])
-                    ]
-
-                    return allFilters.map((filter, index) => (
-                      <Badge 
-                        key={`${filter.type}-${index}`} 
-                        variant="secondary" 
-                        className="text-xs py-1 px-2 bg-white border border-blue-300 text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1"
-                        onClick={() => filter.onRemove()}
-                      >
-                        <span className="truncate max-w-[120px]">{filter.label}</span>
-                        <X className="h-3 w-3 flex-shrink-0 hover:text-red-600 transition-colors" />
-                      </Badge>
-                    ))
-                  })()}
+                <h4 className="text-xs font-medium text-blue-900 mb-2">Активные фильтры:</h4>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    ...selectedBrands.map((brand) => ({ type: 'brand', label: brand, onRemove: () => setSelectedBrands(selectedBrands.filter(b => b !== brand)) })),
+                    ...selectedConditions.map((condition) => ({ type: 'condition', label: condition, onRemove: () => setSelectedConditions(selectedConditions.filter(c => c !== condition)) })),
+                    ...selectedCategories.map((category) => ({ type: 'category', label: category, onRemove: () => setSelectedCategories(selectedCategories.filter(c => c !== category)) })),
+                    ...(priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1]) ? [{ type: 'price', label: `${priceRange[0].toLocaleString()}-${priceRange[1].toLocaleString()} ₽`, onRemove: () => setPriceRange(defaultPriceRange) }] : []),
+                    ...(yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1]) ? [{ type: 'year', label: `${yearRange[0]}-${yearRange[1]}`, onRemove: () => setYearRange(defaultYearRange) }] : []),
+                    ...(selectedCity.length > 0 ? [{ type: 'city', label: selectedCity, onRemove: () => setSelectedCity("") }] : []),
+                    ...(distanceRadius[0] !== 5 ? [{ type: 'distance', label: `${distanceRadius[0]} км`, onRemove: () => setDistanceRadius([5]) }] : [])
+                  ].map((filter, index) => (
+                    <Badge 
+                      key={`${filter.type}-${index}`} 
+                      variant="secondary" 
+                      className="text-xs py-0.5 px-1.5 bg-white border border-blue-300 text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1 max-w-[100px]"
+                      onClick={() => filter.onRemove()}
+                    >
+                      <span className="truncate text-xs">{filter.label}</span>
+                      <X className="h-2.5 w-2.5 flex-shrink-0 hover:text-red-600 transition-colors" />
+                    </Badge>
+                  ))}
                 </div>
               </div>
             )}
 
+            {/* Categories */}
             <SidebarGroup>
               <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-blue-500 rounded-full mr-3"></span>
-          Категории
+                <span className="w-1 h-5 bg-blue-500 rounded-full mr-3"></span>
+                Категории
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-        <div className="space-y-3">
-          {Object.entries(categories).map(([mainCategory, subCategories]) => (
-            <div key={mainCategory} className="border-l-2 border-gray-200 pl-3">
-              <button
-                onClick={() => toggleCategory(mainCategory)}
-                className="flex items-center justify-between w-full text-left text-sm font-medium py-2 text-gray-800 hover:text-blue-600 transition-colors"
-              >
-                {mainCategory}
-                <ChevronRight
-                  className={`h-4 w-4 transition-transform ${expandedCategories.includes(mainCategory) ? "rotate-90" : ""}`}
-                />
-              </button>
-              {expandedCategories.includes(mainCategory) && (
-                <div className="ml-4 mt-2 space-y-2 border-l border-gray-100 pl-3">
-                  {Object.entries(subCategories).map(([subCategory, items]) => (
-                    <div key={subCategory}>
-                      <button
-                        onClick={() => toggleCategory(`${mainCategory}-${subCategory}`)}
-                        className="flex items-center justify-between w-full text-left text-xs font-medium py-1 text-gray-700 hover:text-blue-600 transition-colors"
-                      >
-                        {subCategory}
-                        <ChevronRight
-                          className={`h-3 w-3 transition-transform ${expandedCategories.includes(`${mainCategory}-${subCategory}`) ? "rotate-90" : ""}`}
-                        />
-                      </button>
-                      {expandedCategories.includes(`${mainCategory}-${subCategory}`) && (
-                        <div className="ml-4 mt-2 space-y-2">
-                          {items.map((item) => (
-                            <div key={item} className="flex items-center gap-2">
-                              <Checkbox
-                                id={item}
-                                checked={selectedCategories.includes(item)}
-                                onCheckedChange={() => toggleCategorySelection(item)}
-                              />
-                              <Label htmlFor={item} className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
-                                {item}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  <div className="space-y-3">
+                    {Object.entries(categories).map(([mainCategory, subCategories]) => (
+                      <div key={mainCategory} className="border-l-2 border-gray-200 pl-3">
+                        <button
+                          onClick={() => toggleCategory(mainCategory)}
+                          className="flex items-center justify-between w-full text-left text-sm font-medium py-2 text-gray-800 hover:text-blue-600 transition-colors"
+                        >
+                          {mainCategory}
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${expandedCategories.includes(mainCategory) ? "rotate-90" : ""}`}
+                          />
+                        </button>
+                        {expandedCategories.includes(mainCategory) && (
+                          <div className="ml-4 mt-2 space-y-2 border-l border-gray-100 pl-3">
+                            {Object.entries(subCategories).map(([subCategory, items]) => (
+                              <div key={subCategory}>
+                                <button
+                                  onClick={() => toggleCategory(`${mainCategory}-${subCategory}`)}
+                                  className="flex items-center justify-between w-full text-left text-xs font-medium py-1 text-gray-700 hover:text-blue-600 transition-colors"
+                                >
+                                  {subCategory}
+                                  <ChevronRight
+                                    className={`h-3 w-3 transition-transform ${expandedCategories.includes(`${mainCategory}-${subCategory}`) ? "rotate-90" : ""}`}
+                                  />
+                                </button>
+                                {expandedCategories.includes(`${mainCategory}-${subCategory}`) && (
+                                  <div className="ml-4 mt-2 space-y-2">
+                                    {items.map((item) => (
+                                      <div key={item} className="flex items-center gap-2">
+                                        <Checkbox
+                                          id={item}
+                                          checked={selectedCategories.includes(item)}
+                                          onCheckedChange={() => toggleCategorySelection(item)}
+                                        />
+                                        <Label htmlFor={item} className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
+                                          {item}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Brands */}
             <SidebarGroup>
               <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-purple-500 rounded-full mr-3"></span>
-          Бренд
+                <span className="w-1 h-5 bg-purple-500 rounded-full mr-3"></span>
+                Бренд
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -448,105 +433,105 @@ export function AppSidebar({
                       >
                         Очистить выбор
                       </Button>
-        </div>
+                    </div>
                   )}
-      </div>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-green-500 rounded-full mr-3"></span>
-          Цена
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <div className="bg-gray-50 rounded-lg p-4">
-        <div className="">
-                                  {priceRangeData ? (
-              <>
-                <Slider 
-                  value={priceRange.length === 2 ? priceRange : defaultPriceRange} 
-                  onValueChange={setPriceRange} 
-                  defaultValue={defaultPriceRange}
-                  min={defaultPriceRange[0]}
-                  max={defaultPriceRange[1]} 
-                  step={Math.max(100, Math.min(1000, Math.round((defaultPriceRange[1] - defaultPriceRange[0]) / 200)))} 
-                  className="mb-4"
-                />
-                <div className="flex justify-between text-sm text-gray-600 font-medium">
-                  <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0]?.toLocaleString() || '0'} ₽</span>
-                  <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1]?.toLocaleString() || '0'} ₽</span>
                 </div>
-              </>
-            ) : (
-              <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона цен...</div>
-            )}
-        </div>
-      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Price */}
             <SidebarGroup>
               <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-orange-500 rounded-full mr-3"></span>
-          Состояние
+                <span className="w-1 h-5 bg-green-500 rounded-full mr-3"></span>
+                Цена
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-        <div className="space-y-3">
-          {conditions.map((condition) => (
-            <div key={condition} className="flex items-center gap-2">
-              <Checkbox
-                id={condition}
-                checked={selectedConditions.includes(condition)}
-                onCheckedChange={() => toggleCondition(condition)}
-              />
-              <Label htmlFor={condition} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
-                {condition}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-red-500 rounded-full mr-3"></span>
-          Год покупки
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <div className="bg-gray-50 rounded-lg p-4">
-        <div className="">
-                                  {yearRangeData ? (
-              <>
-                <Slider 
-                  value={yearRange.length === 2 ? yearRange : defaultYearRange} 
-                  onValueChange={setYearRange} 
-                  defaultValue={defaultYearRange}
-                  min={defaultYearRange[0]} 
-                  max={defaultYearRange[1]} 
-                  step={1} 
-                  className="mb-4"
-                />
-                <div className="flex justify-between text-sm text-gray-600 font-medium">
-                  <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0] || 2015}</span>
-                  <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1] || 2024}</span>
+                  {priceRangeData ? (
+                    <>
+                      <Slider 
+                        value={priceRange.length === 2 ? priceRange : defaultPriceRange} 
+                        onValueChange={setPriceRange} 
+                        defaultValue={defaultPriceRange}
+                        min={defaultPriceRange[0]}
+                        max={defaultPriceRange[1]} 
+                        step={Math.max(100, Math.min(1000, Math.round((defaultPriceRange[1] - defaultPriceRange[0]) / 200)))} 
+                        className="mb-4"
+                      />
+                      <div className="flex justify-between text-sm text-gray-600 font-medium">
+                        <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0]?.toLocaleString() || '0'} ₽</span>
+                        <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1]?.toLocaleString() || '0'} ₽</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона цен...</div>
+                  )}
                 </div>
-              </>
-            ) : (
-              <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона лет...</div>
-            )}
-        </div>
-      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* Condition */}
             <SidebarGroup>
               <SidebarGroupLabel>
-          <span className="w-1 h-5 bg-teal-500 rounded-full mr-3"></span>
-          По удалённости продавца
+                <span className="w-1 h-5 bg-orange-500 rounded-full mr-3"></span>
+                Состояние
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="space-y-3">
+                    {conditions.map((condition) => (
+                      <div key={condition} className="flex items-center gap-2">
+                        <Checkbox
+                          id={condition}
+                          checked={selectedConditions.includes(condition)}
+                          onCheckedChange={() => toggleCondition(condition)}
+                        />
+                        <Label htmlFor={condition} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
+                          {condition}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* Year */}
+            <SidebarGroup>
+              <SidebarGroupLabel>
+                <span className="w-1 h-5 bg-red-500 rounded-full mr-3"></span>
+                Год покупки
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  {yearRangeData ? (
+                    <>
+                      <Slider 
+                        value={yearRange.length === 2 ? yearRange : defaultYearRange} 
+                        onValueChange={setYearRange} 
+                        defaultValue={defaultYearRange}
+                        min={defaultYearRange[0]} 
+                        max={defaultYearRange[1]} 
+                        step={1} 
+                        className="mb-4"
+                      />
+                      <div className="flex justify-between text-sm text-gray-600 font-medium">
+                        <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0] || 2015}</span>
+                        <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1] || 2024}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона лет...</div>
+                  )}
+                </div>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* Location */}
+            <SidebarGroup>
+              <SidebarGroupLabel>
+                <span className="w-1 h-5 bg-teal-500 rounded-full mr-3"></span>
+                По удалённости продавца
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
