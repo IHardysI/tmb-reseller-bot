@@ -144,6 +144,11 @@ export const deletePost = mutation({
       throw new Error("Not authorized to delete this post");
     }
 
+    // Update brand count if post has a brand
+    if (post.brand && post.brand.trim()) {
+      await decrementBrandCount(ctx, post.brand.trim());
+    }
+
     await ctx.db.patch(args.postId, {
       isActive: false,
       updatedAt: Date.now(),
@@ -350,26 +355,57 @@ export const getPostById = query({
 export const getBrands = query({
   args: {},
   handler: async (ctx) => {
-    const brands = await ctx.db
-      .query("brands")
-      .withIndex("by_posts_count")
-      .order("desc")
+    // Get all active posts with brands
+    const activePosts = await ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
-    return brands.map(brand => brand.name);
+    // Count posts by brand
+    const brandCounts: { [key: string]: number } = {};
+    activePosts.forEach(post => {
+      if (post.brand && post.brand.trim()) {
+        const brand = post.brand.trim();
+        brandCounts[brand] = (brandCounts[brand] || 0) + 1;
+      }
+    });
+
+    // Sort brands by count (descending) and return just the names
+    return Object.entries(brandCounts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([brand]) => brand);
   },
 });
 
 export const getPopularBrands = query({
   args: {},
   handler: async (ctx) => {
-    const brands = await ctx.db
-      .query("brands")
-      .withIndex("by_posts_count")
-      .order("desc")
-      .take(20);
+    // Get all active posts with brands
+    const activePosts = await ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
 
-    return brands;
+    // Count posts by brand
+    const brandCounts: { [key: string]: number } = {};
+    activePosts.forEach(post => {
+      if (post.brand && post.brand.trim()) {
+        const brand = post.brand.trim();
+        brandCounts[brand] = (brandCounts[brand] || 0) + 1;
+      }
+    });
+
+    // Sort brands by count and return top 20 with counts
+    return Object.entries(brandCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 20)
+      .map(([name, postsCount]) => ({
+        name,
+        postsCount,
+        _id: `brand-${name}` as any, // Temporary ID for compatibility
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }));
   },
 });
 
@@ -412,6 +448,20 @@ export const getYearRange = query({
     };
   },
 });
+
+const decrementBrandCount = async (ctx: any, brandName: string) => {
+  const existingBrand = await ctx.db
+    .query("brands")
+    .withIndex("by_name", (q: any) => q.eq("name", brandName))
+    .first();
+
+  if (existingBrand && existingBrand.postsCount > 0) {
+    await ctx.db.patch(existingBrand._id, {
+      postsCount: Math.max(0, existingBrand.postsCount - 1),
+      updatedAt: Date.now(),
+    });
+  }
+};
 
 const createOrUpdateBrand = async (ctx: any, brandName: string) => {
   const existingBrand = await ctx.db

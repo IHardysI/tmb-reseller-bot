@@ -191,6 +191,7 @@ function Sidebar({
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(320px*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(320px*-1)]",
           "group-data-[side=left]:border-r",
+          "transform-gpu will-change-transform backface-visibility-hidden",
           className
         )}
         {...props}

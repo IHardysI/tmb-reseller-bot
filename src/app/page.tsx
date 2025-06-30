@@ -339,8 +339,9 @@ function MarketplaceContent() {
         <ProductDetail
           postId={selectedPostId}
           isOpen={selectedPostId !== null}
-          onClose={() => setSelectedPostId(null)}
           onEdit={handleEditPost}
+          onDelete={handleDeletePost}
+          onClose={() => setSelectedPostId(null)}
         />
 
         <AddItemDialog

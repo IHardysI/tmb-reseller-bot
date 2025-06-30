@@ -22,6 +22,7 @@ import {
   X,
   Eye,
   Edit,
+  Trash2,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
@@ -31,9 +32,10 @@ interface ProductDetailProps {
   isOpen: boolean
   onClose: () => void
   onEdit?: (post: any) => void
+  onDelete?: (postId: string) => void
 }
 
-export default function ProductDetail({ postId, isOpen, onClose, onEdit }: ProductDetailProps) {
+export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelete }: ProductDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
   const telegramUser = useTelegramUser()
@@ -80,6 +82,13 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit }: Produ
     }
   }
 
+  const handleDelete = () => {
+    if (onDelete && postId) {
+      onDelete(postId)
+      onClose()
+    }
+  }
+
   const isLiked = currentUser && post.likedBy?.includes(currentUser._id) || false
   const isOwned = currentUser && post.telegramId === telegramUser?.userId || false
   const likesCount = post.likesCount || 0
@@ -90,15 +99,29 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit }: Produ
       <DialogContent className="max-w-3xl! w-[95vw] h-[95vh] p-0 overflow-hidden">
         <DialogHeader className="p-1 sm:p-3 border-b bg-white sticky top-0 z-10">
           <div className="flex items-center justify-end gap-2">
-            {isOwned && onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onEdit(post)}
-                className="h-8 w-8"
-              >
-                <Edit className="h-4 w-4 text-blue-600" />
-              </Button>
+            {isOwned && (
+              <>
+                {onDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDelete}
+                    className="h-8 w-8"
+                    >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </Button>
+                )}
+                {onEdit && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(post)}
+                    className="h-8 w-8"
+                  >
+                    <Edit className="h-4 w-4 text-blue-600" />
+                  </Button>
+                )}
+              </>
             )}
             <Button
               variant="ghost"

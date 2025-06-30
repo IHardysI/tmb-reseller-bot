@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -124,9 +124,37 @@ export function AppSidebar({
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [brandSearch, setBrandSearch] = useState("")
   const { isMobile } = useSidebar()
+  
+  // Add scroll position preservation
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollPosition, setScrollPosition] = useState(0)
+
+  // Save scroll position when filters change
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      if (scrollRef.current) {
+        setScrollPosition(scrollRef.current.scrollTop)
+      }
+    }
+
+    const timeoutId = setTimeout(saveScrollPosition, 100)
+    return () => clearTimeout(timeoutId)
+  }, [selectedBrands, selectedConditions, selectedCategories, priceRange, yearRange])
 
   const defaultPriceRange = priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
   const defaultYearRange = yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
+
+  // Restore scroll position after content updates
+  useEffect(() => {
+    if (scrollRef.current && scrollPosition > 0) {
+      const timeoutId = setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollPosition
+        }
+      }, 50)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [brands, popularBrands, scrollPosition])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand])
@@ -193,7 +221,22 @@ export function AppSidebar({
       </SidebarHeader>
       
                     <SidebarContent className="scrollbar-hide">
-        <div className="py-4 space-y-6">
+        <ScrollArea 
+          className="h-full" 
+          ref={scrollRef}
+          style={{ 
+            position: 'relative',
+            contain: 'layout style paint',
+            willChange: 'scroll-position'
+          }}
+        >
+          <div 
+            className="py-4 space-y-6 px-6"
+            style={{ 
+              minHeight: '100%',
+              contain: 'layout'
+            }}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <SlidersHorizontal className="h-4 w-4 mr-2 text-gray-600" />
@@ -543,7 +586,8 @@ export function AppSidebar({
                 </div>
               </SidebarGroupContent>
             </SidebarGroup>
-    </div>
+          </div>
+        </ScrollArea>
       </SidebarContent>
     </Sidebar>
   )
