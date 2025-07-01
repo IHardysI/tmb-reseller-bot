@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SidebarProvider } from "@/components/ui/sidebar"
+
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
@@ -17,14 +17,20 @@ import {
   SlidersHorizontal,
   User,
   MessageCircle,
+  Home as HomeIcon,
+  ShoppingCart,
 } from "lucide-react"
+import Link from "next/link"
 
 import ProductDetail from "@/components/widgets/product-detail"
 import ProductCard from "@/components/widgets/product-card"
-import { AppSidebar, SidebarTrigger } from "@/components/widgets/sidebar"
+import { SidebarTrigger } from "@/components/widgets/sidebar"
 import { AuthGuard } from '@/components/AuthGuard'
 import { FloatingActionButton } from "@/components/ui/floating-action-button"
+import { useFilters } from "@/contexts/FilterContext"
 import AddItemDialog from "@/components/widgets/create-post"
+import Header from "@/components/widgets/header"
+import { PageLoader } from "@/components/ui/loader"
 
 interface Product {
   id: string
@@ -68,29 +74,24 @@ function MarketplaceContent() {
   
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("newest")
-  const [priceRange, setPriceRange] = useState<number[]>([])
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([])
-  const [yearRange, setYearRange] = useState<number[]>([])
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [selectedCity, setSelectedCity] = useState("")
-  const [distanceRadius, setDistanceRadius] = useState<number[]>([5])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  
+  const filters = useFilters()
   const [editingPost, setEditingPost] = useState<Product | null>(null)
 
   // Initialize ranges when data loads
   useEffect(() => {
-    if (priceRangeData && priceRange.length === 0) {
-      setPriceRange([priceRangeData.min, priceRangeData.max])
+    if (priceRangeData && filters.priceRange.length === 0) {
+      filters.setPriceRange([priceRangeData.min, priceRangeData.max])
     }
-  }, [priceRangeData, priceRange.length])
+  }, [priceRangeData, filters.priceRange.length])
 
   useEffect(() => {
-    if (yearRangeData && yearRange.length === 0) {
-      setYearRange([yearRangeData.min, yearRangeData.max])
+    if (yearRangeData && filters.yearRange.length === 0) {
+      filters.setYearRange([yearRangeData.min, yearRangeData.max])
     }
-  }, [yearRangeData, yearRange.length])
+  }, [yearRangeData, filters.yearRange.length])
 
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = allPosts.map(post => ({
@@ -129,31 +130,31 @@ function MarketplaceContent() {
     }
 
     // Apply brand filter
-    if (selectedBrands.length > 0) {
-      filtered = filtered.filter(product => selectedBrands.includes(product.brand))
+    if (filters.selectedBrands.length > 0) {
+      filtered = filtered.filter(product => filters.selectedBrands.includes(product.brand))
     }
 
     // Apply condition filter
-    if (selectedConditions.length > 0) {
-      filtered = filtered.filter(product => selectedConditions.includes(product.condition))
+    if (filters.selectedConditions.length > 0) {
+      filtered = filtered.filter(product => filters.selectedConditions.includes(product.condition))
     }
 
     // Apply price range filter
-    if (priceRange.length === 2) {
+    if (filters.priceRange.length === 2) {
       filtered = filtered.filter(product => 
-        product.price >= priceRange[0] && product.price <= priceRange[1]
+        product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
       )
     }
 
     // Apply year range filter
-    if (yearRange.length === 2) {
+    if (filters.yearRange.length === 2) {
       filtered = filtered.filter(product => 
-        product.year >= yearRange[0] && product.year <= yearRange[1]
+        product.year >= filters.yearRange[0] && product.year <= filters.yearRange[1]
       )
     }
 
     // Apply category filter (basic implementation)
-    if (selectedCategories.length > 0) {
+    if (filters.selectedCategories.length > 0) {
       // For now, we'll filter by category field if it exists
       // This would need to be expanded based on the actual category structure
     }
@@ -176,7 +177,7 @@ function MarketplaceContent() {
     }
 
     return filtered
-  }, [allPosts, searchQuery, selectedBrands, selectedConditions, priceRange, yearRange, selectedCategories, sortBy, currentUser])
+  }, [allPosts, searchQuery, filters.selectedBrands, filters.selectedConditions, filters.priceRange, filters.yearRange, filters.selectedCategories, sortBy, currentUser])
 
   const toggleFavorite = async (productId: string) => {
     if (!telegramUser?.userId) return
@@ -211,39 +212,9 @@ function MarketplaceContent() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        priceRange={priceRange}
-        setPriceRange={setPriceRange}
-        selectedBrands={selectedBrands}
-        setSelectedBrands={setSelectedBrands}
-        selectedConditions={selectedConditions}
-        setSelectedConditions={setSelectedConditions}
-        yearRange={yearRange}
-        setYearRange={setYearRange}
-        selectedCategories={selectedCategories}
-        setSelectedCategories={setSelectedCategories}
-        selectedCity={selectedCity}
-        setSelectedCity={setSelectedCity}
-        distanceRadius={distanceRadius}
-        setDistanceRadius={setDistanceRadius}
-      />
-      
       <div className="flex-1 min-h-screen bg-gray-50">
-        <div className="bg-white border-b hidden md:block">
-          <div className="flex items-center justify-between p-4">
-                          <h1 className="text-xl font-bold text-gray-900 my-1">Маркетплейс</h1>
-                          <div className="hidden md:flex items-center gap-3">
-                <Button variant="outline" size="sm" className="border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Сообщения
-                </Button>
-                <Button variant="outline" size="sm" className="border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200">
-                  <User className="h-4 w-4 mr-2" />
-                  Профиль
-                </Button>
-              </div>
-          </div>
+        <div className="hidden md:block">
+          <Header title="Маркетплейс" />
         </div>
         <div className="bg-white border-b sticky top-0 z-40">
           <div className="p-4">
@@ -306,12 +277,7 @@ function MarketplaceContent() {
 
         <div className="p-4">
           {allPosts === undefined ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Загружаем товары...</p>
-              </div>
-            </div>
+            <PageLoader text="Загружаем товары..." />
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -357,7 +323,6 @@ function MarketplaceContent() {
           onClick={() => setIsCreateDialogOpen(true)}
         />
       </div>
-    </SidebarProvider>
   )
 }
 

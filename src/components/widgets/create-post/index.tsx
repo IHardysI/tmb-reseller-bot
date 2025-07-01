@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, Plus, Camera, Upload } from "lucide-react"
@@ -57,15 +57,6 @@ interface ItemFormData {
 
 
 const conditions = ["Новое", "Как новое", "С дефектами"]
-const categories = {
-  Одежда: ["Женская одежда", "Мужская одежда", "Детская одежда"],
-  Обувь: ["Женская обувь", "Мужская обувь", "Детская обувь"],
-  "Сумки и аксессуары": ["Сумки", "Аксессуары"],
-  "Часы и украшения": ["Часы", "Украшения"],
-  Техника: ["Телефоны и планшеты", "Компьютеры", "Аудио"],
-  "Дом и интерьер": ["Мебель", "Декор", "Посуда"],
-  "Спорт и отдых": ["Спортивная одежда", "Спортивное оборудование", "Туризм"],
-}
 
 
 
@@ -74,7 +65,8 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
   const createPost = useMutation(api.posts.createPost)
   const updatePost = useMutation(api.posts.updatePost)
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl)
-  const brands = useQuery(api.posts.getBrands) || []
+  const brands = useQuery(api.posts.getAllBrands) || []
+  const categoryTree = useQuery(api.categories.getCategoryTree) || []
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState<ItemFormData>({
@@ -115,7 +107,6 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
         })),
         defects: editingPost.defects,
       })
-      setShowCustomBrand(editingPost.brand !== "Без бренда" && !brands.includes(editingPost.brand))
     } else {
       setFormData({
         name: "",
@@ -130,6 +121,13 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
         defects: [],
       })
       setShowCustomBrand(false)
+    }
+  }, [editingPost])
+
+  // Handle custom brand visibility when brands data changes
+  useEffect(() => {
+    if (editingPost && brands.length > 0) {
+      setShowCustomBrand(editingPost.brand !== "Без бренда" && !brands.includes(editingPost.brand))
     }
   }, [editingPost, brands])
 
@@ -358,6 +356,9 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
           <DialogTitle className="text-xl font-bold">
             {editingPost ? "Редактировать товар" : "Добавить товар на продажу"}
           </DialogTitle>
+          <DialogDescription>
+            {editingPost ? "Внесите изменения в информацию о товаре" : "Заполните информацию о товаре для публикации объявления"}
+          </DialogDescription>
           <div className="flex items-center space-x-2 mt-4">
             {Array.from({ length: totalSteps }).map((_, index) => (
               <div
@@ -469,9 +470,9 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
                           <SelectValue placeholder="Выберите категорию" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.keys(categories).map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
+                          {categoryTree.map((category) => (
+                            <SelectItem key={category._id} value={category.name}>
+                              {category.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -489,11 +490,14 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
                             <SelectValue placeholder="Выберите подкатегорию" />
                           </SelectTrigger>
                           <SelectContent>
-                            {categories[formData.category as keyof typeof categories]?.map((subcategory) => (
-                              <SelectItem key={subcategory} value={subcategory}>
-                                {subcategory}
-                              </SelectItem>
-                            ))}
+                            {(() => {
+                              const selectedCategory = categoryTree.find(cat => cat.name === formData.category);
+                              return selectedCategory?.children?.map((subcategory: any) => (
+                                <SelectItem key={subcategory._id} value={subcategory.name}>
+                                  {subcategory.name}
+                                </SelectItem>
+                              )) || [];
+                            })()}
                           </SelectContent>
                         </Select>
                       </div>

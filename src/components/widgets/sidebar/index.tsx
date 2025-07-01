@@ -27,7 +27,11 @@ import {
   Search,
   X,
   MapPin,
+  Home,
+  ShoppingCart,
 } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 
@@ -36,55 +40,6 @@ const conditions = [
   "Как новое", 
   "С дефектами",
 ]
-const categories = {
-  Одежда: {
-    "Женская одежда": [
-      "Платья",
-      "Блузки",
-      "Юбки",
-      "Брюки",
-      "Джинсы",
-      "Костюмы",
-      "Пальто",
-      "Куртки",
-      "Свитера",
-      "Кардиганы",
-    ],
-    "Мужская одежда": [
-      "Рубашки",
-      "Футболки",
-      "Брюки",
-      "Джинсы",
-      "Костюмы",
-      "Пиджаки",
-      "Пальто",
-      "Куртки",
-      "Свитера",
-      "Худи",
-    ],
-    "Детская одежда": ["Для мальчиков", "Для девочек", "Для малышей", "Школьная форма"],
-  },
-  Обувь: {
-    "Женская обувь": [
-      "Туфли",
-      "Сапоги",
-      "Ботинки",
-      "Кроссовки",
-      "Балетки",
-      "Босоножки",
-      "Сандалии",
-      "Угги",
-    ],
-    "Мужская обувь": ["Туфли", "Ботинки", "Кроссовки", "Сапоги", "Мокасины", "Сандалии"],
-    "Детская обувь": ["Для мальчиков", "Для девочек", "Спортивная обувь"],
-  },
-  Аксессуары: {
-    Сумки: ["Женские сумки", "Мужские сумки", "Рюкзаки", "Клатчи", "Портфели"],
-    Украшения: ["Кольца", "Серьги", "Браслеты", "Цепочки", "Броши"],
-    Часы: ["Мужские часы", "Женские часы", "Спортивные часы", "Умные часы"],
-    Очки: ["Солнцезащитные", "Оптические", "Спортивные"],
-  },
-}
 
 interface SidebarProps {
   priceRange: number[]
@@ -123,9 +78,20 @@ export function AppSidebar({
   const popularBrands = useQuery(api.posts.getPopularBrands) || []
   const priceRangeData = useQuery(api.posts.getPriceRange)
   const yearRangeData = useQuery(api.posts.getYearRange)
+  const categoryTree = useQuery(api.categories.getCategoryTree) || []
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [brandSearch, setBrandSearch] = useState("")
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpen, setOpenMobile } = useSidebar()
+  const router = useRouter()
+  
+  const handleNavigate = (path: string) => {
+    if (isMobile) {
+      setOpenMobile(false)
+    } else {
+      setOpen(false)
+    }
+    router.push(path)
+  }
   
   // Better scroll position preservation
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -220,7 +186,7 @@ export function AppSidebar({
 
   const filteredBrands = brandSearch 
     ? brands.filter(brand => 
-        brand.toLowerCase().includes(brandSearch.toLowerCase())
+    brand.toLowerCase().includes(brandSearch.toLowerCase())
       ).slice(0, 5)
     : brands.slice(0, 3)
 
@@ -229,13 +195,43 @@ export function AppSidebar({
       <SidebarHeader className="px-6 py-4 border-b bg-white shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Peer Swap</h2>
         {isMobile && (
-          <div className="flex gap-3 mt-4 pb-2 border-gray-200">
-            <Button variant="outline" className="flex-1 aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-3">
-              <MessageCircle className="h-6 w-6" />
+          <div className="flex flex-wrap gap-2 mt-4 pb-2 border-gray-200">
+            <div className="flex-1 min-w-[calc(50%-4px)]">
+              <Button 
+                variant="outline" 
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                onClick={() => handleNavigate("/")}
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex-1 min-w-[calc(50%-4px)]">
+              <Button 
+                variant="outline" 
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                onClick={() => handleNavigate("/profile")}
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex-1 min-w-[calc(50%-4px)]">
+              <Button 
+                variant="outline" 
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                onClick={() => handleNavigate("/cart")}
+              >
+                <ShoppingCart className="h-5 w-5" />
             </Button>
-            <Button variant="outline" className="flex-1 aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-3">
-              <User className="h-6 w-6" />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-4px)]">
+              <Button 
+                variant="outline" 
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                onClick={() => handleNavigate("/messages")}
+              >
+                <MessageCircle className="h-5 w-5" />
             </Button>
+            </div>
           </div>
         )}
       </SidebarHeader>
@@ -284,15 +280,15 @@ export function AppSidebar({
                     ...(selectedCity.length > 0 ? [{ type: 'city', label: selectedCity, onRemove: () => setSelectedCity("") }] : []),
                     ...(distanceRadius[0] !== 5 ? [{ type: 'distance', label: `${distanceRadius[0]} км`, onRemove: () => setDistanceRadius([5]) }] : [])
                   ].map((filter, index) => (
-                    <Badge 
-                      key={`${filter.type}-${index}`} 
-                      variant="secondary" 
+                      <Badge 
+                        key={`${filter.type}-${index}`} 
+                        variant="secondary" 
                       className="text-xs py-0.5 px-1.5 bg-white border border-blue-300 text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1 max-w-[100px]"
-                      onClick={() => filter.onRemove()}
-                    >
+                        onClick={() => filter.onRemove()}
+                      >
                       <span className="truncate text-xs">{filter.label}</span>
                       <X className="h-2.5 w-2.5 flex-shrink-0 hover:text-red-600 transition-colors" />
-                    </Badge>
+                      </Badge>
                   ))}
                 </div>
               </div>
@@ -301,68 +297,85 @@ export function AppSidebar({
             {/* Categories */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-blue-500 rounded-full mr-3"></span>
-                Категории
+          <span className="w-1 h-5 bg-blue-500 rounded-full mr-3"></span>
+          Категории
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-3">
-                    {Object.entries(categories).map(([mainCategory, subCategories]) => (
-                      <div key={mainCategory} className="border-l-2 border-gray-200 pl-3">
-                        <button
-                          onClick={() => toggleCategory(mainCategory)}
-                          className="flex items-center justify-between w-full text-left text-sm font-medium py-2 text-gray-800 hover:text-blue-600 transition-colors"
-                        >
-                          {mainCategory}
-                          <ChevronRight
-                            className={`h-4 w-4 transition-transform ${expandedCategories.includes(mainCategory) ? "rotate-90" : ""}`}
-                          />
-                        </button>
-                        {expandedCategories.includes(mainCategory) && (
-                          <div className="ml-4 mt-2 space-y-2 border-l border-gray-100 pl-3">
-                            {Object.entries(subCategories).map(([subCategory, items]) => (
-                              <div key={subCategory}>
-                                <button
-                                  onClick={() => toggleCategory(`${mainCategory}-${subCategory}`)}
-                                  className="flex items-center justify-between w-full text-left text-xs font-medium py-1 text-gray-700 hover:text-blue-600 transition-colors"
-                                >
-                                  {subCategory}
-                                  <ChevronRight
-                                    className={`h-3 w-3 transition-transform ${expandedCategories.includes(`${mainCategory}-${subCategory}`) ? "rotate-90" : ""}`}
+        <div className="space-y-3">
+          {categoryTree.map((mainCategory) => (
+            <div key={mainCategory._id} className="border-l-2 border-gray-200 pl-3">
+              <button
+                onClick={() => toggleCategory(mainCategory._id)}
+                className="flex items-center justify-between w-full text-left text-sm font-medium py-2 text-gray-800 hover:text-blue-600 transition-colors"
+              >
+                {mainCategory.name}
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform ${expandedCategories.includes(mainCategory._id) ? "rotate-90" : ""}`}
+                />
+              </button>
+              {expandedCategories.includes(mainCategory._id) && (
+                <div className="ml-4 mt-2 space-y-2 border-l border-gray-100 pl-3">
+                  {mainCategory.children.map((subCategory: any) => (
+                    <div key={subCategory._id}>
+                      {subCategory.children.length > 0 ? (
+                        // If subcategory has children, show as expandable button only
+                        <>
+                          <button
+                            onClick={() => toggleCategory(subCategory._id)}
+                            className="flex items-center justify-between w-full text-left text-xs font-medium py-1 text-gray-700 hover:text-blue-600 transition-colors"
+                          >
+                            {subCategory.name}
+                            <ChevronRight
+                              className={`h-3 w-3 transition-transform ${expandedCategories.includes(subCategory._id) ? "rotate-90" : ""}`}
+                            />
+                          </button>
+                          {expandedCategories.includes(subCategory._id) && (
+                            <div className="ml-4 mt-2 space-y-2">
+                              {subCategory.children.map((item: any) => (
+                                <div key={item._id} className="flex items-center gap-2">
+                                  <Checkbox
+                                    id={item._id}
+                                    checked={selectedCategories.includes(item.name)}
+                                    onCheckedChange={() => toggleCategorySelection(item.name)}
                                   />
-                                </button>
-                                {expandedCategories.includes(`${mainCategory}-${subCategory}`) && (
-                                  <div className="ml-4 mt-2 space-y-2">
-                                    {items.map((item) => (
-                                      <div key={item} className="flex items-center gap-2">
-                                        <Checkbox
-                                          id={item}
-                                          checked={selectedCategories.includes(item)}
-                                          onCheckedChange={() => toggleCategorySelection(item)}
-                                        />
-                                        <Label htmlFor={item} className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
-                                          {item}
-                                        </Label>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                                  <Label htmlFor={item._id} className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
+                                    {item.name}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        // If subcategory has no children, show as selectable checkbox
+                        <div className="flex items-center gap-2 py-1">
+                          <Checkbox
+                            id={subCategory._id}
+                            checked={selectedCategories.includes(subCategory.name)}
+                            onCheckedChange={() => toggleCategorySelection(subCategory.name)}
+                          />
+                          <Label htmlFor={subCategory._id} className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
+                            {subCategory.name}
+                          </Label>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
             {/* Brands */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-purple-500 rounded-full mr-3"></span>
-                Бренд
+          <span className="w-1 h-5 bg-purple-500 rounded-full mr-3"></span>
+          Бренд
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -382,15 +395,15 @@ export function AppSidebar({
                         return (
                           <div key={brand} className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-1">
-                              <Checkbox
-                                id={brand}
-                                checked={selectedBrands.includes(brand)}
-                                onCheckedChange={() => toggleBrand(brand)}
-                              />
-                              <Label htmlFor={brand} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
-                                {brand}
-                              </Label>
-                            </div>
+              <Checkbox
+                id={brand}
+                checked={selectedBrands.includes(brand)}
+                onCheckedChange={() => toggleBrand(brand)}
+              />
+              <Label htmlFor={brand} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
+                {brand}
+              </Label>
+            </div>
                             {brandData && (
                               <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
                                 {brandData.postsCount}
@@ -433,105 +446,105 @@ export function AppSidebar({
                       >
                         Очистить выбор
                       </Button>
-                    </div>
+        </div>
                   )}
-                </div>
+      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
             {/* Price */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-green-500 rounded-full mr-3"></span>
-                Цена
+          <span className="w-1 h-5 bg-green-500 rounded-full mr-3"></span>
+          Цена
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
                   {priceRangeData ? (
                     <>
-                      <Slider 
+          <Slider 
                         value={priceRange.length === 2 ? priceRange : defaultPriceRange} 
-                        onValueChange={setPriceRange} 
+            onValueChange={setPriceRange} 
                         defaultValue={defaultPriceRange}
                         min={defaultPriceRange[0]}
                         max={defaultPriceRange[1]} 
                         step={Math.max(100, Math.min(1000, Math.round((defaultPriceRange[1] - defaultPriceRange[0]) / 200)))} 
-                        className="mb-4"
-                      />
-                      <div className="flex justify-between text-sm text-gray-600 font-medium">
+            className="mb-4"
+          />
+          <div className="flex justify-between text-sm text-gray-600 font-medium">
                         <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[0]?.toLocaleString() || '0'} ₽</span>
                         <span className="bg-white px-2 py-1 rounded shadow-sm">{priceRange[1]?.toLocaleString() || '0'} ₽</span>
-                      </div>
+          </div>
                     </>
                   ) : (
                     <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона цен...</div>
                   )}
-                </div>
+      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
             {/* Condition */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-orange-500 rounded-full mr-3"></span>
-                Состояние
+          <span className="w-1 h-5 bg-orange-500 rounded-full mr-3"></span>
+          Состояние
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-3">
-                    {conditions.map((condition) => (
-                      <div key={condition} className="flex items-center gap-2">
-                        <Checkbox
-                          id={condition}
-                          checked={selectedConditions.includes(condition)}
-                          onCheckedChange={() => toggleCondition(condition)}
-                        />
-                        <Label htmlFor={condition} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
-                          {condition}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        <div className="space-y-3">
+          {conditions.map((condition) => (
+            <div key={condition} className="flex items-center gap-2">
+              <Checkbox
+                id={condition}
+                checked={selectedConditions.includes(condition)}
+                onCheckedChange={() => toggleCondition(condition)}
+              />
+              <Label htmlFor={condition} className="text-sm text-gray-700 hover:text-gray-900 cursor-pointer font-medium">
+                {condition}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
             {/* Year */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-red-500 rounded-full mr-3"></span>
-                Год покупки
+          <span className="w-1 h-5 bg-red-500 rounded-full mr-3"></span>
+          Год покупки
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
                   {yearRangeData ? (
                     <>
-                      <Slider 
+          <Slider 
                         value={yearRange.length === 2 ? yearRange : defaultYearRange} 
-                        onValueChange={setYearRange} 
+            onValueChange={setYearRange} 
                         defaultValue={defaultYearRange}
                         min={defaultYearRange[0]} 
                         max={defaultYearRange[1]} 
-                        step={1} 
-                        className="mb-4"
-                      />
-                      <div className="flex justify-between text-sm text-gray-600 font-medium">
+            step={1} 
+            className="mb-4"
+          />
+          <div className="flex justify-between text-sm text-gray-600 font-medium">
                         <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[0] || 2015}</span>
                         <span className="bg-white px-2 py-1 rounded shadow-sm">{yearRange[1] || 2024}</span>
-                      </div>
+          </div>
                     </>
                   ) : (
                     <div className="text-sm text-gray-500 text-center py-4">Загрузка диапазона лет...</div>
                   )}
-                </div>
+      </div>
               </SidebarGroupContent>
             </SidebarGroup>
 
             {/* Location */}
             <SidebarGroup>
               <SidebarGroupLabel>
-                <span className="w-1 h-5 bg-teal-500 rounded-full mr-3"></span>
-                По удалённости продавца
+          <span className="w-1 h-5 bg-teal-500 rounded-full mr-3"></span>
+          По удалённости продавца
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -571,7 +584,7 @@ export function AppSidebar({
                 </div>
               </SidebarGroupContent>
             </SidebarGroup>
-          </div>
+    </div>
         </ScrollArea>
       </SidebarContent>
     </Sidebar>

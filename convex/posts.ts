@@ -72,10 +72,31 @@ export const createPost = mutation({
 export const getUserPosts = query({
   args: { telegramId: v.number() },
   handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    if (!user) {
+      return [];
+    }
+
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const getUserSoldPosts = query({
+  args: { telegramId: v.number() },
+  handler: async (ctx, args) => {
     return await ctx.db
       .query("posts")
       .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), false))
+      .filter((q) => q.neq(q.field("soldAt"), undefined))
       .order("desc")
       .collect();
   },
@@ -86,7 +107,7 @@ export const getAllActivePosts = query({
   handler: async (ctx) => {
     const posts = await ctx.db
       .query("posts")
-      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .withIndex("by_active_created", (q) => q.eq("isActive", true))
       .order("desc")
       .collect();
 
@@ -149,10 +170,8 @@ export const deletePost = mutation({
       await decrementBrandCount(ctx, post.brand.trim());
     }
 
-    await ctx.db.patch(args.postId, {
-      isActive: false,
-      updatedAt: Date.now(),
-    });
+    // Actually delete the post from database
+    await ctx.db.delete(args.postId);
 
     const user = await ctx.db
       .query("users")
@@ -163,6 +182,49 @@ export const deletePost = mutation({
       const currentPostsCount = user.postsCount || 0;
       await ctx.db.patch(user._id, {
         postsCount: Math.max(0, currentPostsCount - 1),
+      });
+    }
+  },
+});
+
+export const markPostAsSold = mutation({
+  args: {
+    postId: v.id("posts"),
+    telegramId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    if (post.telegramId !== args.telegramId) {
+      throw new Error("Not authorized to mark this post as sold");
+    }
+
+    // Update brand count since sold items shouldn't count in active listings
+    if (post.brand && post.brand.trim()) {
+      await decrementBrandCount(ctx, post.brand.trim());
+    }
+
+    // Mark as sold but keep in database
+    await ctx.db.patch(args.postId, {
+      isActive: false,
+      soldAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    if (user) {
+      const currentPostsCount = user.postsCount || 0;
+      const soldCount = user.soldCount || 0;
+      await ctx.db.patch(user._id, {
+        postsCount: Math.max(0, currentPostsCount - 1),
+        soldCount: soldCount + 1,
       });
     }
   },
@@ -409,6 +471,20 @@ export const getPopularBrands = query({
   },
 });
 
+export const getAllBrands = query({
+  args: {},
+  handler: async (ctx) => {
+    const brands = await ctx.db
+      .query("brands")
+      .order("desc")
+      .collect();
+
+    return brands
+      .sort((a, b) => b.postsCount - a.postsCount)
+      .map(brand => brand.name);
+  },
+});
+
 export const getPriceRange = query({
   args: {},
   handler: async (ctx) => {
@@ -446,6 +522,26 @@ export const getYearRange = query({
       min: Math.min(...years),
       max: Math.max(...years)
     };
+  },
+});
+
+export const getLikedPosts = query({
+  args: { telegramId: v.number() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    if (!user) {
+      return [];
+    }
+
+    const allPosts = await ctx.db.query("posts").collect();
+    
+    return allPosts.filter(post => 
+      post.likedBy && post.likedBy.includes(user._id)
+    );
   },
 });
 

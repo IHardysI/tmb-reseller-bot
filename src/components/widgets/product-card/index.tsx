@@ -153,13 +153,17 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
             </div>
           </div>
 
-          <Button 
-            size="sm" 
-            className="w-full text-xs h-7"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ShoppingCart className="h-2 w-2 mr-1" />В корзину
-          </Button>
+          <div className="h-7">
+            {!product.isOwned && (
+              <Button 
+                size="sm" 
+                className="w-full text-xs h-7"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ShoppingCart className="h-2 w-2 mr-1" />В корзину
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

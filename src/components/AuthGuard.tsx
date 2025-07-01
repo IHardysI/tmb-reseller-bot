@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { useTelegramUser } from '@/hooks/useTelegramUser';
@@ -12,6 +12,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
+  const [mounted, setMounted] = useState(false);
   const { userId, isUserAvailable } = useTelegramUser();
   const router = useRouter();
   
@@ -21,14 +22,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
   );
 
   useEffect(() => {
-    if (isUserAvailable && userId) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && isUserAvailable && userId) {
       if (existingUser === null) {
         router.push('/auth/login');
       } else if (existingUser && !existingUser.onboardingCompleted) {
         router.push('/auth/login');
       }
     }
-  }, [isUserAvailable, userId, existingUser, router]);
+  }, [mounted, isUserAvailable, userId, existingUser, router]);
+
+  if (!mounted) {
+    return <FullScreenLoader text="Загрузка..." />;
+  }
 
   if (!isUserAvailable || !userId) {
     return <FullScreenLoader text="Инициализация..." />;

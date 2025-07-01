@@ -24,7 +24,7 @@ import {
   Edit,
   Trash2,
 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import Image from "next/image"
 
 interface ProductDetailProps {
@@ -98,6 +98,10 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl! w-[95vw] h-[95vh] p-0 overflow-hidden">
         <DialogHeader className="p-1 sm:p-3 border-b bg-white sticky top-0 z-10">
+          <DialogTitle className="sr-only">Товар: {post.name}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Детальная информация о товаре {post.name} от {post.brand}
+          </DialogDescription>
           <div className="flex items-center justify-end gap-2">
             {isOwned && (
               <>
@@ -203,18 +207,20 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-2 w-full">
-              <Button size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
-                <ShoppingCart className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                <span className="hidden sm:inline">Добавить в корзину</span>
-                <span className="sm:hidden">В корзину</span>
-              </Button>
-              <Button variant="outline" size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
-                <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                <span className="hidden sm:inline">Написать продавцу</span>
-                <span className="sm:hidden">Написать</span>
-              </Button>
-            </div>
+            {!isOwned && (
+              <div className="flex gap-2 w-full">
+                <Button size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                  <ShoppingCart className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                  <span className="hidden sm:inline">Добавить в корзину</span>
+                  <span className="sm:hidden">В корзину</span>
+                </Button>
+                <Button variant="outline" size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                  <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                  <span className="hidden sm:inline">Написать продавцу</span>
+                  <span className="sm:hidden">Написать</span>
+                </Button>
+              </div>
+            )}
 
             {/* Product Info */}
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">

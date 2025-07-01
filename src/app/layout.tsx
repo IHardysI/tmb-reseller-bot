@@ -1,24 +1,36 @@
-import type { PropsWithChildren } from 'react';
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { ConvexClientProvider } from './ConvexClientProvider';
+import ClientLayout from "@/components/ClientLayout"
 
-import { ConvexClientProvider } from '@/app/ConvexClientProvider';
-import { Root } from '@/components/features/Root/Root';
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
-import '@telegram-apps/telegram-ui/dist/styles.css';
-import 'normalize.css/normalize.css';
-import './globals.css';
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'Reseller Bot - P2P Marketplace',
-  description: 'Buy and sell items in your community through Telegram',
+  title: "Reseller Bot",
+  description: "A marketplace for reselling items",
 };
 
-export default function RootLayout({ children }: PropsWithChildren) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ConvexClientProvider>
-          <Root>{children}</Root>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
         </ConvexClientProvider>
       </body>
     </html>
