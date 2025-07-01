@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useCart } from "@/contexts/CartContext"
 import { 
   Sidebar,
   SidebarContent,
@@ -83,6 +84,8 @@ export function AppSidebar({
   const [brandSearch, setBrandSearch] = useState("")
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const router = useRouter()
+  const { getCartItemsCount } = useCart()
+  const cartItemsCount = getCartItemsCount()
   
   const handleNavigate = (path: string) => {
     if (isMobile) {
@@ -198,10 +201,15 @@ export function AppSidebar({
             <div className="flex-1 min-w-[calc(50%-4px)]">
               <Button 
                 variant="outline" 
-                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2 relative"
                 onClick={() => handleNavigate("/cart")}
               >
                 <ShoppingCart className="h-5 w-5" />
+                {cartItemsCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center border border-white">
+                    {cartItemsCount > 9 ? '9+' : cartItemsCount}
+                  </Badge>
+                )}
             </Button>
             </div>
             <div className="flex-1 min-w-[calc(50%-4px)]">

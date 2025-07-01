@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Lock, Star, ShoppingCart, Award, Eye, Edit, Trash2 } from "lucide-react"
 import Image from "next/image"
+import { useCart } from "@/contexts/CartContext"
 
 interface Product {
   id: string
@@ -39,12 +40,31 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onProductClick, onToggleFavorite, onEdit, onDelete, priority = false }: ProductCardProps) {
+  const { addToCart } = useCart()
+  
   const getTrustIcon = () => {
     return <Award className="h-4 w-4 text-amber-600" />
   }
 
   const getTrustLabel = () => {
     return "Новый"
+  }
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    addToCart({
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      price: product.price,
+      image: product.images[0] || "/placeholder.svg",
+      condition: product.condition,
+      year: product.year,
+      sellerName: product.sellerName || "Продавец",
+      sellerAvatar: "/placeholder.svg",
+      sellerTrust: "bronze",
+      sellerRating: 4.5
+    })
   }
 
   return (
@@ -158,7 +178,7 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
               <Button 
                 size="sm" 
                 className="w-full text-xs h-7"
-                onClick={(e) => e.stopPropagation()}
+                onClick={handleAddToCart}
               >
                 <ShoppingCart className="h-2 w-2 mr-1" />В корзину
               </Button>
