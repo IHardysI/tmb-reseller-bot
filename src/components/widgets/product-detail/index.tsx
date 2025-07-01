@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import Image from "next/image"
+import { ImagePreview } from "@/components/ui/image-preview"
 
 interface ProductDetailProps {
   postId: Id<"posts"> | null
@@ -38,6 +39,7 @@ interface ProductDetailProps {
 export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelete }: ProductDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false)
   const telegramUser = useTelegramUser()
   
   const post = useQuery(api.posts.getPostById, postId ? { postId } : "skip")
@@ -148,9 +150,10 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
                   alt={post.name}
                   width={800}
                   height={450}
-                  className="w-full aspect-[16/9] object-cover"
+                  className="w-full aspect-[16/9] object-cover cursor-pointer"
                   priority
                   unoptimized
+                  onClick={() => setIsImagePreviewOpen(true)}
                 />
                 
                 {post.images.length > 1 && (
@@ -439,6 +442,13 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
           </div>
         </div>
       </DialogContent>
+      
+      <ImagePreview
+        images={post.images}
+        isOpen={isImagePreviewOpen}
+        onClose={() => setIsImagePreviewOpen(false)}
+        initialIndex={currentImageIndex}
+      />
     </Dialog>
   )
 } 

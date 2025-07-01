@@ -21,7 +21,6 @@ export default defineSchema({
     totalViews: v.optional(v.number()),
     trustLevel: v.optional(v.union(v.literal("bronze"), v.literal("silver"), v.literal("gold"))),
     verificationStatus: v.optional(v.union(v.literal("verified"), v.literal("pending"), v.literal("unverified"))),
-    avatar: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
   }).index("by_telegram_id", ["telegramId"]),
   

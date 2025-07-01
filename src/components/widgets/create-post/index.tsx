@@ -19,6 +19,7 @@ import Image from "next/image"
 interface AddItemDialogProps {
   isOpen: boolean
   onClose: () => void
+  onPostCreated?: () => void
   editingPost?: {
     id: string
     name: string
@@ -60,7 +61,7 @@ const conditions = ["Новое", "Как новое", "С дефектами"]
 
 
 
-export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemDialogProps) {
+export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingPost }: AddItemDialogProps) {
   const telegramUser = useTelegramUser()
   const createPost = useMutation(api.posts.createPost)
   const updatePost = useMutation(api.posts.updatePost)
@@ -276,8 +277,8 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
     }
 
     const hasValidImages = editingPost 
-      ? formData.images.length > 0  // For editing, just need images
-      : formData.images.some(img => img.storageId && !img.uploading)  // For creating, need uploaded images
+      ? formData.images.length > 0
+      : formData.images.some(img => img.storageId && !img.uploading)
 
     if (!hasValidImages) {
       console.error("No valid images found")
@@ -288,7 +289,6 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
     
     try {
       if (editingPost) {
-        // For editing, we need to handle existing images differently
         const imageStorageIds = formData.images
           .filter(img => img.storageId && !img.storageId.toString().startsWith('existing-'))
           .map(img => img.storageId!) as Id<"_storage">[]
@@ -310,7 +310,7 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
         console.log("Post updated successfully!")
       } else {
         const uploadedImages = formData.images.filter(img => img.storageId && !img.uploading)
-        await createPost({
+        const postId = await createPost({
           telegramId: telegramUser.userId,
           name: formData.name,
           brand: formData.brand ?? undefined,
@@ -323,7 +323,9 @@ export default function AddItemDialog({ isOpen, onClose, editingPost }: AddItemD
           images: uploadedImages.map(img => img.storageId!).filter(Boolean) as Id<"_storage">[],
           defects: formData.defects.filter(defect => defect.description && defect.location),
         })
-        console.log("Post created successfully!")
+        console.log("Post created successfully with ID:", postId)
+        
+        onPostCreated?.()
       }
       
       onClose()

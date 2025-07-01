@@ -60,7 +60,7 @@ interface Product {
 
 function MarketplaceContent() {
   const telegramUser = useTelegramUser()
-  const allPosts = useQuery(api.posts.getAllActivePosts) || []
+  const allPosts = useQuery(api.posts.getAllActivePosts)
   const currentUser = useQuery(
     api.users.getUserByTelegramId, 
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
@@ -80,6 +80,10 @@ function MarketplaceContent() {
   const filters = useFilters()
   const [editingPost, setEditingPost] = useState<Product | null>(null)
 
+  const handlePostCreated = () => {
+    console.log("Post created successfully!")
+  }
+
   // Initialize ranges when data loads
   useEffect(() => {
     if (priceRangeData && filters.priceRange.length === 0) {
@@ -94,6 +98,8 @@ function MarketplaceContent() {
   }, [yearRangeData, filters.yearRange.length])
 
   const filteredAndSortedProducts = useMemo(() => {
+    if (!allPosts) return []
+    
     let filtered = allPosts.map(post => ({
       id: post._id,
       name: post.name,
@@ -316,6 +322,7 @@ function MarketplaceContent() {
             setIsCreateDialogOpen(false)
             setEditingPost(null)
           }}
+          onPostCreated={handlePostCreated}
           editingPost={editingPost}
         />
 

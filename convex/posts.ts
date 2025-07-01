@@ -42,6 +42,8 @@ export const createPost = mutation({
       await createOrUpdateBrand(ctx, args.brand.trim());
     }
 
+    const createdAt = Date.now();
+
     const postId = await ctx.db.insert("posts", {
       userId: user._id,
       telegramId: args.telegramId,
@@ -55,8 +57,8 @@ export const createPost = mutation({
       subcategory: args.subcategory,
       images: imageUrls.filter(url => url !== null) as string[],
       defects: args.defects,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: createdAt,
+      updatedAt: createdAt,
       isActive: true,
     });
 
@@ -81,11 +83,12 @@ export const getUserPosts = query({
       return [];
     }
 
-    return await ctx.db
+    const posts = await ctx.db
       .query("posts")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
       .collect();
+
+    return posts.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -107,12 +110,17 @@ export const getAllActivePosts = query({
   handler: async (ctx) => {
     const posts = await ctx.db
       .query("posts")
-      .withIndex("by_active_created", (q) => q.eq("isActive", true))
-      .order("desc")
+      .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
+    console.log("getAllActivePosts found", posts.length, "active posts");
+    
+    const sortedPosts = posts.sort((a, b) => b.createdAt - a.createdAt);
+
+    console.log("Latest post timestamps:", sortedPosts.slice(0, 3).map(p => ({ id: p._id, createdAt: p.createdAt, name: p.name })));
+
     const postsWithSellers = await Promise.all(
-      posts.map(async (post) => {
+      sortedPosts.map(async (post) => {
         const user = await ctx.db.get(post.userId);
         return {
           ...post,
@@ -129,24 +137,26 @@ export const getAllActivePosts = query({
 export const getPostsByCategory = query({
   args: { category: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const posts = await ctx.db
       .query("posts")
       .withIndex("by_category", (q) => q.eq("category", args.category))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .order("desc")
       .collect();
+    
+    return posts.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
 export const getPostsByBrand = query({
   args: { brand: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const posts = await ctx.db
       .query("posts")
       .withIndex("by_brand", (q) => q.eq("brand", args.brand))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .order("desc")
       .collect();
+    
+    return posts.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 

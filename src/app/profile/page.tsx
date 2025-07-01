@@ -47,54 +47,29 @@ interface UserProfile {
   verificationStatus: "verified" | "pending" | "unverified"
 }
 
-interface Product {
-  id: string
-  name: string
-  brand: string
-  price: number
-  images: string[]
-  condition: string
-  year: number
-  aiRating?: number
-  aiRecommendation?: string
-  aiExplanation?: string
-  isFavorite: boolean
-  description: string
-  category: string
-  subcategory?: string
-  defects: {
-    description: string
-    location: string
-  }[]
-  sellerName?: string
-  sellerCity?: string
-  likesCount?: number
-  views?: number
-  isOwned?: boolean
-  status?: "active" | "sold" | "draft"
-}
-
 function ProfilePageContent() {
   const router = useRouter()
   const telegramUser = useTelegramUser()
+  
   const currentUser = useQuery(
     api.users.getUserByTelegramId, 
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
   )
+  
   const userPosts = useQuery(
     api.posts.getUserPosts,
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
-  ) || []
+  )
+  
   const likedPosts = useQuery(
     api.posts.getLikedPosts,
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
-  ) || []
+  )
   
   const deletePost = useMutation(api.posts.deletePost)
   const updateUserProfile = useMutation(api.users.updateUserProfile)
   const generateUploadUrl = useMutation(api.users.generateUploadUrl)
   const updateUserAvatar = useMutation(api.users.updateUserAvatar)
-  const refreshUserAvatarUrl = useMutation(api.users.refreshUserAvatarUrl)
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
   
@@ -113,26 +88,24 @@ function ProfilePageContent() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
-  if (!currentUser) {
-    return <PageLoader text="Загрузка профиля..." />
-  }
+
 
   const userData: UserProfile = {
-    id: currentUser._id,
-    name: `${currentUser.firstName} ${currentUser.lastName || ''}`.trim(),
-    avatar: currentUser.avatar || "/placeholder.svg",
-    trustLevel: currentUser.trustLevel || "bronze",
-    rating: currentUser.rating || 0,
-    joinDate: new Date(currentUser.registeredAt).toISOString().split('T')[0],
-    location: currentUser.city || "",
-    totalSales: currentUser.soldCount || 0,
-    activeListings: userPosts.filter(p => p.isActive).length,
-    totalViews: currentUser.totalViews || userPosts.reduce((sum, post) => sum + (post.views || 0), 0),
-    bio: currentUser.bio || "",
-    verificationStatus: currentUser.verificationStatus || "unverified",
+    id: currentUser?._id || "",
+    name: currentUser ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : "",
+    avatar: currentUser?.avatar || "/placeholder.svg",
+    trustLevel: currentUser?.trustLevel || "bronze",
+    rating: currentUser?.rating || 0,
+    joinDate: currentUser ? new Date(currentUser.registeredAt).toISOString().split('T')[0] : "",
+    location: currentUser?.city || "",
+    totalSales: currentUser?.soldCount || 0,
+    activeListings: userPosts ? userPosts.filter(p => p.isActive).length : 0,
+    totalViews: currentUser?.totalViews || (userPosts ? userPosts.reduce((sum, post) => sum + (post.views || 0), 0) : 0),
+    bio: currentUser?.bio || "",
+    verificationStatus: currentUser?.verificationStatus || "unverified",
   }
 
-  const userItems: Product[] = userPosts.map(post => ({
+  const mapPostToProduct = (post: any, isOwnPost = false, isFavorite = false) => ({
     id: post._id,
     name: post.name,
     brand: post.brand || "Без бренда",
@@ -149,56 +122,53 @@ function ProfilePageContent() {
     category: post.category || "",
     subcategory: post.subcategory,
     defects: post.defects || [],
-    isFavorite: currentUser && post.likedBy?.includes(currentUser._id) || false,
-    isOwned: true,
-    sellerName: currentUser?.firstName,
-    sellerCity: currentUser?.city,
-  }))
-
-  const likedItems: Product[] = likedPosts.map(post => ({
-    id: post._id,
-    name: post.name,
-    brand: post.brand || "Без бренда",
-    price: post.price,
-    images: post.images,
-    condition: post.condition,
-    year: post.year,
-    aiRating: post.aiRating || 0,
-    aiRecommendation: post.aiRecommendation || "Цена адекватна",
-    views: post.views || 0,
-    likesCount: post.likesCount || 0,
-    status: post.isActive ? "active" : post.soldAt ? "sold" : "draft",
-    description: post.description,
-    category: post.category || "",
-    subcategory: post.subcategory,
-    defects: post.defects || [],
-    isFavorite: true,
-    isOwned: currentUser && post.telegramId === telegramUser?.userId || false,
-    sellerName: currentUser && post.telegramId === telegramUser?.userId 
-      ? currentUser.firstName 
-      : "Продавец",
-    sellerCity: currentUser && post.telegramId === telegramUser?.userId 
-      ? currentUser.city || "Город"
-      : "Город",
-  }))
+    isFavorite,
+    isOwned: isOwnPost,
+    sellerName: isOwnPost ? (currentUser?.firstName || "Продавец") : post.sellerName || "Продавец",
+    sellerCity: isOwnPost ? (currentUser?.city || "Город") : post.sellerCity || "Город",
+  })
 
   const getFilteredItems = () => {
+    if (!currentUser || !userPosts || !likedPosts) return []
+    
     switch (activeTab) {
       case "liked":
-        return likedItems
+        return likedPosts.map(post => mapPostToProduct(
+          post,
+          post.telegramId === telegramUser?.userId,
+          true
+        ))
       case "active":
-        return userItems.filter(item => item.status === "active")
+        return userPosts
+          .filter(post => post.isActive)
+          .map(post => mapPostToProduct(
+            post,
+            true,
+            post.likedBy?.includes(currentUser._id) || false
+          ))
       case "sold":
-        return userItems.filter(item => item.status === "sold")
+        return userPosts
+          .filter(post => !post.isActive && post.soldAt)
+          .map(post => mapPostToProduct(
+            post,
+            true,
+            post.likedBy?.includes(currentUser._id) || false
+          ))
       default:
-        return userItems.filter(item => item.status === "active")
+        return userPosts
+          .filter(post => post.isActive)
+          .map(post => mapPostToProduct(
+            post,
+            true,
+            post.likedBy?.includes(currentUser._id) || false
+          ))
     }
   }
 
   const filteredItems = getFilteredItems()
 
-  const handleProductClick = (product: Product) => {
-    setSelectedPostId(product.id as Id<"posts">)
+  const handleProductClick = (product: any) => {
+    setSelectedPostId(product.id)
   }
 
   const handleToggleFavorite = async (productId: string) => {
@@ -218,14 +188,14 @@ function ProfilePageContent() {
     }
   }
 
-  const handleEditItem = (product: Product) => {
+  const handleEditItem = (product: any) => {
     console.log("Edit item:", product.id)
   }
 
   const handleDeleteItem = async (productId: string) => {
     if (!telegramUser?.userId) return
     try {
-      await deletePost({ postId: productId as any, telegramId: telegramUser.userId })
+      await deletePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
     } catch (error) {
       console.error("Error deleting post:", error)
     }
@@ -236,6 +206,8 @@ function ProfilePageContent() {
   }
 
   const handleEditProfile = () => {
+    if (!currentUser) return
+    
     setEditForm({
       firstName: currentUser.firstName,
       lastName: currentUser.lastName || "",
@@ -282,14 +254,6 @@ function ProfilePageContent() {
       const updateResult = await updateUserAvatar({ telegramId: telegramUser.userId, avatarStorageId: storageId })
       console.log("Avatar updated in database:", updateResult)
       
-      // Try to refresh the avatar URL as a fallback
-      try {
-        await refreshUserAvatarUrl({ telegramId: telegramUser.userId })
-        console.log("Avatar URL refreshed successfully")
-      } catch (error) {
-        console.log("Error refreshing avatar URL:", error)
-      }
-      
       return storageId
     } catch (error) {
       console.error("Error uploading avatar:", error)
@@ -305,7 +269,6 @@ function ProfilePageContent() {
     try {
       setIsSavingProfile(true)
       
-      // Upload avatar first if there's a new one
       if (avatarFile) {
         await uploadAvatar()
       }
@@ -319,11 +282,9 @@ function ProfilePageContent() {
         bio: editForm.bio || undefined,
       })
       
-      // Clear avatar preview and file to show updated avatar from database
       setAvatarFile(null)
       setAvatarPreview(null)
       
-      // Small delay to allow Convex query to refresh with new data
       setTimeout(() => {
         setIsEditDialogOpen(false)
         setIsSavingProfile(false)
@@ -339,7 +300,12 @@ function ProfilePageContent() {
     <div className="min-h-screen bg-gray-50">
       <Header title="Мой профиль" />
 
-      <div className="max-w-6xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
+      {!currentUser || !userPosts || !likedPosts ? (
+        <div className="max-w-6xl mx-auto p-2 md:p-4">
+          <PageLoader text="Загрузка профиля..." />
+        </div>
+      ) : (
+        <div className="max-w-6xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
         <Card className="overflow-hidden py-0!">
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-20 md:h-32"></div>
           <CardContent className="relative pt-0 pb-4 md:pb-6 px-4 md:px-6">
@@ -581,15 +547,15 @@ function ProfilePageContent() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 h-auto">
                 <TabsTrigger value="active" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Активные ({userItems.filter((item) => item.status === "active").length})</span>
+                  <span className="hidden md:inline">Активные ({userPosts.filter((post) => post.isActive).length})</span>
                   <span className="md:hidden">Активные</span>
                 </TabsTrigger>
                 <TabsTrigger value="liked" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Понравившиеся ({likedItems.length})</span>
+                  <span className="hidden md:inline">Понравившиеся ({likedPosts.length})</span>
                   <span className="md:hidden">❤️</span>
                 </TabsTrigger>
                 <TabsTrigger value="sold" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Проданные ({userItems.filter((item) => item.status === "sold").length})</span>
+                  <span className="hidden md:inline">Проданные ({userPosts.filter((post) => !post.isActive && post.soldAt).length})</span>
                   <span className="md:hidden">Проданные</span>
                 </TabsTrigger>
               </TabsList>
@@ -620,7 +586,8 @@ function ProfilePageContent() {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <ProductDetail
         postId={selectedPostId}
