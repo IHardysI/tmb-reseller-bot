@@ -229,46 +229,21 @@ export function AppSidebar({
                 <SlidersHorizontal className="h-4 w-4 mr-2 text-gray-600" />
                 <span className="font-semibold text-gray-900 text-sm">Фильтры</span>
               </div>
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetAllFilters}
-                  className="border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 text-red-700 hover:text-red-800 text-xs px-2 py-1 h-7 font-medium shadow-sm transition-all duration-200 flex-shrink-0"
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  Очистить
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetAllFilters}
+                disabled={!hasActiveFilters}
+                className={`text-xs px-2 py-1 h-7 font-medium shadow-sm transition-all duration-200 flex-shrink-0 ${
+                  hasActiveFilters 
+                    ? "border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 text-red-700 hover:text-red-800" 
+                    : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Очистить
+              </Button>
             </div>
-
-            {/* Active Filters - Compact */}
-            {hasActiveFilters && (
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <h4 className="text-xs font-medium text-blue-900 mb-2">Активные фильтры:</h4>
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    ...selectedBrands.map((brand) => ({ type: 'brand', label: brand, onRemove: () => setSelectedBrands(selectedBrands.filter(b => b !== brand)) })),
-                    ...selectedConditions.map((condition) => ({ type: 'condition', label: condition, onRemove: () => setSelectedConditions(selectedConditions.filter(c => c !== condition)) })),
-                    ...selectedCategories.map((category) => ({ type: 'category', label: category, onRemove: () => setSelectedCategories(selectedCategories.filter(c => c !== category)) })),
-                    ...(priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1]) ? [{ type: 'price', label: `${priceRange[0].toLocaleString()}-${priceRange[1].toLocaleString()} ₽`, onRemove: () => setPriceRange(defaultPriceRange) }] : []),
-                    ...(yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1]) ? [{ type: 'year', label: `${yearRange[0]}-${yearRange[1]}`, onRemove: () => setYearRange(defaultYearRange) }] : []),
-                    ...(selectedCity.length > 0 ? [{ type: 'city', label: selectedCity, onRemove: () => setSelectedCity("") }] : []),
-                    ...(distanceRadius[0] !== 5 ? [{ type: 'distance', label: `${distanceRadius[0]} км`, onRemove: () => setDistanceRadius([5]) }] : [])
-                  ].map((filter, index) => (
-                      <Badge 
-                        key={`${filter.type}-${index}`} 
-                        variant="secondary" 
-                      className="text-xs py-0.5 px-1.5 bg-white border border-blue-300 text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1 max-w-[100px]"
-                        onClick={() => filter.onRemove()}
-                      >
-                      <span className="truncate text-xs">{filter.label}</span>
-                      <X className="h-2.5 w-2.5 flex-shrink-0 hover:text-red-600 transition-colors" />
-                      </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Categories */}
             <SidebarGroup>
