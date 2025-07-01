@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react"
+import { useState, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -93,54 +93,34 @@ export function AppSidebar({
     router.push(path)
   }
   
-  // Better scroll position preservation
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const preservedScrollTop = useRef<number>(0)
-  const isRestoringScroll = useRef<boolean>(false)
-  const restoreTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const defaultPriceRange = priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
   const defaultYearRange = yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
 
-  // Save scroll position before filter changes
-  useEffect(() => {
-    if (scrollAreaRef.current && !isRestoringScroll.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-      if (scrollContainer) {
-        preservedScrollTop.current = scrollContainer.scrollTop
-      }
-    }
-  }, [selectedBrands, selectedConditions, selectedCategories, priceRange, yearRange, selectedCity, distanceRadius])
+  const clearSelectedBrands = () => {
+    setSelectedBrands([])
+  }
 
-  // Restore scroll position after content updates
-  useEffect(() => {
-    if (restoreTimeoutRef.current) {
-      clearTimeout(restoreTimeoutRef.current)
-    }
+  const hasActiveFilters = useMemo(() => 
+    selectedBrands.length > 0 ||
+    selectedConditions.length > 0 ||
+    selectedCategories.length > 0 ||
+    (priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1])) ||
+    (yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1])) ||
+    selectedCity.length > 0 ||
+    distanceRadius[0] !== 5
+  , [selectedBrands.length, selectedConditions.length, selectedCategories.length, priceRange, yearRange, selectedCity.length, distanceRadius, defaultPriceRange, defaultYearRange])
 
-    if (scrollAreaRef.current && preservedScrollTop.current > 0) {
-      restoreTimeoutRef.current = setTimeout(() => {
-        if (scrollAreaRef.current) {
-          isRestoringScroll.current = true
-          const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-          if (scrollContainer) {
-            requestAnimationFrame(() => {
-              scrollContainer.scrollTop = preservedScrollTop.current
-              setTimeout(() => {
-                isRestoringScroll.current = false
-              }, 50)
-            })
-          }
-        }
-      }, 100)
+  const filteredBrands = useMemo(() => {
+    if (brandSearch) {
+      return brands.filter(brand => 
+        brand.toLowerCase().includes(brandSearch.toLowerCase())
+      ).slice(0, 5)
+    } else {
+      return brands.slice(0, 3)
     }
-
-    return () => {
-      if (restoreTimeoutRef.current) {
-        clearTimeout(restoreTimeoutRef.current)
-      }
-    }
-  }, [brands, popularBrands])
+  }, [brands, brandSearch])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand])
@@ -175,20 +155,21 @@ export function AppSidebar({
     setBrandSearch("")
   }
 
-  const hasActiveFilters = 
-    selectedBrands.length > 0 ||
-    selectedConditions.length > 0 ||
-    selectedCategories.length > 0 ||
-    (priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1])) ||
-    (yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1])) ||
-    selectedCity.length > 0 ||
-    distanceRadius[0] !== 5
+  const handlePriceRangeChange = (range: number[]) => {
+    setPriceRange(range)
+  }
 
-  const filteredBrands = brandSearch 
-    ? brands.filter(brand => 
-    brand.toLowerCase().includes(brandSearch.toLowerCase())
-      ).slice(0, 5)
-    : brands.slice(0, 3)
+  const handleYearRangeChange = (range: number[]) => {
+    setYearRange(range)
+  }
+
+  const handleCityChange = (value: string) => {
+    setSelectedCity(value)
+  }
+
+  const handleDistanceChange = (range: number[]) => {
+    setDistanceRadius(range)
+  }
 
   return (
     <Sidebar>
@@ -239,12 +220,7 @@ export function AppSidebar({
       <SidebarContent className="p-0">
         <ScrollArea 
           ref={scrollAreaRef} 
-          className="h-full" 
-          style={{ 
-            position: 'relative',
-            contain: 'layout style',
-            overflow: 'hidden'
-          }}
+          className="h-full"
         >
           <div className="p-6 space-y-6">
             {/* Filters Header */}
@@ -441,7 +417,7 @@ export function AppSidebar({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setSelectedBrands([])}
+                        onClick={clearSelectedBrands}
                         className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 h-auto"
                       >
                         Очистить выбор
@@ -464,7 +440,7 @@ export function AppSidebar({
                     <>
           <Slider 
                         value={priceRange.length === 2 ? priceRange : defaultPriceRange} 
-            onValueChange={setPriceRange} 
+            onValueChange={handlePriceRangeChange} 
                         defaultValue={defaultPriceRange}
                         min={defaultPriceRange[0]}
                         max={defaultPriceRange[1]} 
@@ -521,7 +497,7 @@ export function AppSidebar({
                     <>
           <Slider 
                         value={yearRange.length === 2 ? yearRange : defaultYearRange} 
-            onValueChange={setYearRange} 
+            onValueChange={handleYearRangeChange} 
                         defaultValue={defaultYearRange}
                         min={defaultYearRange[0]} 
                         max={defaultYearRange[1]} 
@@ -556,7 +532,7 @@ export function AppSidebar({
                         <Input
                           placeholder="Введите город..."
                           value={selectedCity}
-                          onChange={(e) => setSelectedCity(e.target.value)}
+                          onChange={(e) => handleCityChange(e.target.value)}
                           className="pl-10 h-9 text-sm bg-white"
                         />
                       </div>
@@ -566,7 +542,7 @@ export function AppSidebar({
                       <div className="px-2">
                         <Slider 
                           value={distanceRadius} 
-                          onValueChange={setDistanceRadius} 
+                          onValueChange={handleDistanceChange} 
                           defaultValue={[5]}
                           min={1} 
                           max={100} 
