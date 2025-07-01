@@ -35,10 +35,6 @@ interface CartItem {
   sellerRating: number
 }
 
-interface CartPageProps {
-  onBack?: () => void
-}
-
 const mockCartItems: CartItem[] = [
   {
     id: "1",
@@ -72,7 +68,7 @@ const mockCartItems: CartItem[] = [
   },
 ]
 
-export default function CartPage({ onBack }: CartPageProps) {
+export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart, addToCart } = useCart()
   const [deliveryMethod, setDeliveryMethod] = useState("courier")
   const [promoCode, setPromoCode] = useState("")

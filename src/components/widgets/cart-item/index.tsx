@@ -1,6 +1,6 @@
-"use client"
+ "use client"
 
-import { useState } from "react"
+
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -14,6 +14,7 @@ import {
   MessageCircle,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Image from "next/image"
 
 interface CartItem {
   id: string
@@ -59,9 +60,11 @@ export default function CartItemComponent({
     <div>
       <div className="flex space-x-4">
         <div className="flex-shrink-0">
-          <img
+          <Image
             src={item.image || "/placeholder.svg"}
             alt={item.name}
+            width={96}
+            height={96}
             className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-lg border"
           />
         </div>
