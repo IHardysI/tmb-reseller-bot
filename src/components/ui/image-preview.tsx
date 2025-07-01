@@ -19,6 +19,10 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [lastTouchDistance, setLastTouchDistance] = useState(0)
   const imageRef = useRef<HTMLDivElement>(null)
+  const panOffsetRef = useRef({ x: 0, y: 0 })
+  const lastTouchDistanceRef = useRef(0)
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     setCurrentIndex(initialIndex)
@@ -27,7 +31,24 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
   useEffect(() => {
     setZoom(1)
     setPanOffset({ x: 0, y: 0 })
+    panOffsetRef.current = { x: 0, y: 0 }
   }, [currentIndex])
+
+  useEffect(() => {
+    panOffsetRef.current = panOffset
+  }, [panOffset])
+
+  useEffect(() => {
+    lastTouchDistanceRef.current = lastTouchDistance
+  }, [lastTouchDistance])
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging
+  }, [isDragging])
+
+  useEffect(() => {
+    dragStartRef.current = dragStart
+  }, [dragStart])
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
@@ -113,13 +134,17 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
     const touchStartHandler = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         const distance = getTouchDistance(e.touches as any)
+        lastTouchDistanceRef.current = distance
         setLastTouchDistance(distance)
       } else if (e.touches.length === 1) {
+        isDraggingRef.current = true
+        const newDragStart = {
+          x: e.touches[0].clientX - panOffsetRef.current.x,
+          y: e.touches[0].clientY - panOffsetRef.current.y
+        }
+        dragStartRef.current = newDragStart
         setIsDragging(true)
-        setDragStart(prev => ({
-          x: e.touches[0].clientX - prev.x,
-          y: e.touches[0].clientY - prev.y
-        }))
+        setDragStart(newDragStart)
       }
     }
 
@@ -128,25 +153,25 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
       
       if (e.touches.length === 2) {
         const currentDistance = getTouchDistance(e.touches as any)
-        setLastTouchDistance(prevDistance => {
-          if (prevDistance > 0) {
-            const scale = currentDistance / prevDistance
-            setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
-          }
-          return currentDistance
-        })
-      } else if (e.touches.length === 1) {
-        setDragStart(prevStart => {
-          setPanOffset({
-            x: e.touches[0].clientX - prevStart.x,
-            y: e.touches[0].clientY - prevStart.y
-          })
-          return prevStart
-        })
+        if (lastTouchDistanceRef.current > 0) {
+          const scale = currentDistance / lastTouchDistanceRef.current
+          setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
+        }
+        lastTouchDistanceRef.current = currentDistance
+        setLastTouchDistance(currentDistance)
+      } else if (e.touches.length === 1 && isDraggingRef.current) {
+        const newPanOffset = {
+          x: e.touches[0].clientX - dragStartRef.current.x,
+          y: e.touches[0].clientY - dragStartRef.current.y
+        }
+        panOffsetRef.current = newPanOffset
+        setPanOffset(newPanOffset)
       }
     }
 
     const touchEndHandler = () => {
+      isDraggingRef.current = false
+      lastTouchDistanceRef.current = 0
       setIsDragging(false)
       setLastTouchDistance(0)
     }
