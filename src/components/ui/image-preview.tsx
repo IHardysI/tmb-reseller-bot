@@ -132,6 +132,10 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
     if (!imageElement || !isOpen) return
 
     const touchStartHandler = (e: TouchEvent) => {
+      console.log('Touch start:', e.touches.length)
+      e.preventDefault()
+      e.stopPropagation()
+      
       if (e.touches.length === 2) {
         const distance = getTouchDistance(e.touches as any)
         lastTouchDistanceRef.current = distance
@@ -149,7 +153,9 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
     }
 
     const touchMoveHandler = (e: TouchEvent) => {
+      console.log('Touch move:', e.touches.length, 'dragging:', isDraggingRef.current)
       e.preventDefault()
+      e.stopPropagation()
       
       if (e.touches.length === 2) {
         const currentDistance = getTouchDistance(e.touches as any)
@@ -169,21 +175,32 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
       }
     }
 
-    const touchEndHandler = () => {
+    const touchEndHandler = (e: TouchEvent) => {
+      console.log('Touch end')
+      e.preventDefault()
+      e.stopPropagation()
+      
       isDraggingRef.current = false
       lastTouchDistanceRef.current = 0
       setIsDragging(false)
       setLastTouchDistance(0)
     }
 
-    imageElement.addEventListener("touchstart", touchStartHandler, { passive: false })
-    imageElement.addEventListener("touchmove", touchMoveHandler, { passive: false })
-    imageElement.addEventListener("touchend", touchEndHandler, { passive: false })
+    // Add to both the container and document for better capture
+    imageElement.addEventListener("touchstart", touchStartHandler, { passive: false, capture: true })
+    imageElement.addEventListener("touchmove", touchMoveHandler, { passive: false, capture: true })
+    imageElement.addEventListener("touchend", touchEndHandler, { passive: false, capture: true })
+    
+    // Also add to document to ensure we catch all events
+    document.addEventListener("touchmove", touchMoveHandler, { passive: false })
+    document.addEventListener("touchend", touchEndHandler, { passive: false })
 
     return () => {
-      imageElement.removeEventListener("touchstart", touchStartHandler)
-      imageElement.removeEventListener("touchmove", touchMoveHandler)
-      imageElement.removeEventListener("touchend", touchEndHandler)
+      imageElement.removeEventListener("touchstart", touchStartHandler, { capture: true })
+      imageElement.removeEventListener("touchmove", touchMoveHandler, { capture: true })
+      imageElement.removeEventListener("touchend", touchEndHandler, { capture: true })
+      document.removeEventListener("touchmove", touchMoveHandler)
+      document.removeEventListener("touchend", touchEndHandler)
     }
   }, [isOpen])
 
