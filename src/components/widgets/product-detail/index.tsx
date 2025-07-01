@@ -121,7 +121,10 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => onEdit(post)}
+                    onClick={() => onEdit({
+                      ...post,
+                      id: post._id
+                    })}
                     className="h-8 w-8"
                   >
                     <Edit className="h-4 w-4 text-blue-600" />

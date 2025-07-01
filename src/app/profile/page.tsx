@@ -31,6 +31,7 @@ import Header from "@/components/widgets/header"
 import { PageLoader } from "@/components/ui/loader"
 import ProductCard from "@/components/widgets/product-card"
 import ProductDetail from "@/components/widgets/product-detail"
+import AddItemDialog from "@/components/widgets/create-post"
 
 interface UserProfile {
   id: string
@@ -76,6 +77,8 @@ function ProfilePageContent() {
   const [activeTab, setActiveTab] = useState("active")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editingPost, setEditingPost] = useState<any>(null)
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
@@ -189,7 +192,8 @@ function ProfilePageContent() {
   }
 
   const handleEditItem = (product: any) => {
-    console.log("Edit item:", product.id)
+    setEditingPost(product)
+    setIsCreateDialogOpen(true)
   }
 
   const handleDeleteItem = async (productId: string) => {
@@ -294,6 +298,10 @@ function ProfilePageContent() {
       console.error("Error updating profile:", error)
       setIsSavingProfile(false)
     }
+  }
+
+  const handlePostCreated = () => {
+    
   }
 
   return (
@@ -596,6 +604,16 @@ function ProfilePageContent() {
         onDelete={handleDeleteItem}
         onClose={() => setSelectedPostId(null)}
       />
+
+              <AddItemDialog
+          isOpen={isCreateDialogOpen}
+          onClose={() => {
+            setIsCreateDialogOpen(false)
+            setEditingPost(null)
+          }}
+          onPostCreated={handlePostCreated}
+          editingPost={editingPost}
+        />
     </div>
   )
 }

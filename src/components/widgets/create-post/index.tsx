@@ -49,6 +49,8 @@ interface ItemFormData {
     preview: string
     storageId?: Id<"_storage">
     uploading?: boolean
+    isExisting?: boolean
+    originalUrl?: string
   }>
   defects: Array<{
     description: string
@@ -65,6 +67,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
   const telegramUser = useTelegramUser()
   const createPost = useMutation(api.posts.createPost)
   const updatePost = useMutation(api.posts.updatePost)
+  const updatePostWithMixedImages = useMutation(api.posts.updatePostWithMixedImages)
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl)
   const brands = useQuery(api.posts.getAllBrands) || []
   const categoryTree = useQuery(api.categories.getCategoryTree) || []
@@ -103,8 +106,10 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
         images: editingPost.images.map((url, index) => ({
           file: new File([], `existing-${index}`),
           preview: url,
-          storageId: `existing-${index}` as Id<"_storage">,
-          uploading: false
+          storageId: undefined,
+          uploading: false,
+          isExisting: true,
+          originalUrl: url
         })),
         defects: editingPost.defects,
       })
@@ -289,11 +294,15 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
     
     try {
       if (editingPost) {
-        const imageStorageIds = formData.images
-          .filter(img => img.storageId && !img.storageId.toString().startsWith('existing-'))
+        const newImageStorageIds = formData.images
+          .filter(img => img.storageId && !img.isExisting && !img.uploading)
           .map(img => img.storageId!) as Id<"_storage">[]
         
-        await updatePost({
+        const existingImageUrls = formData.images
+          .filter(img => img.isExisting && img.originalUrl)
+          .map(img => img.originalUrl!)
+        
+        await updatePostWithMixedImages({
           postId: editingPost.id as Id<"posts">,
           telegramId: telegramUser.userId,
           name: formData.name,
@@ -304,10 +313,10 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
           description: formData.description,
           category: formData.category,
           subcategory: formData.subcategory || undefined,
-          images: imageStorageIds,
+          newImageStorageIds,
+          existingImageUrls,
           defects: formData.defects.filter(defect => defect.description && defect.location),
         })
-        console.log("Post updated successfully!")
       } else {
         const uploadedImages = formData.images.filter(img => img.storageId && !img.uploading)
         const postId = await createPost({

@@ -112,12 +112,8 @@ export const getAllActivePosts = query({
       .query("posts")
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-
-    console.log("getAllActivePosts found", posts.length, "active posts");
     
     const sortedPosts = posts.sort((a, b) => b.createdAt - a.createdAt);
-
-    console.log("Latest post timestamps:", sortedPosts.slice(0, 3).map(p => ({ id: p._id, createdAt: p.createdAt, name: p.name })));
 
     const postsWithSellers = await Promise.all(
       sortedPosts.map(async (post) => {
@@ -288,6 +284,68 @@ export const updatePost = mutation({
       category: args.category,
       subcategory: args.subcategory,
       images: imageUrls.filter(url => url !== null) as string[],
+      defects: args.defects,
+      updatedAt: Date.now(),
+    });
+
+    return args.postId;
+  },
+});
+
+export const updatePostWithMixedImages = mutation({
+  args: {
+    postId: v.id("posts"),
+    telegramId: v.number(),
+    name: v.string(),
+    brand: v.optional(v.string()),
+    price: v.number(),
+    condition: v.string(),
+    year: v.number(),
+    description: v.string(),
+    category: v.string(),
+    subcategory: v.optional(v.string()),
+    newImageStorageIds: v.array(v.id("_storage")),
+    existingImageUrls: v.array(v.string()),
+    defects: v.array(v.object({
+      description: v.string(),
+      location: v.string(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    if (post.telegramId !== args.telegramId) {
+      throw new Error("Not authorized to update this post");
+    }
+
+    const newImageUrls = await Promise.all(
+      args.newImageStorageIds.map(async (storageId) => {
+        return await ctx.storage.getUrl(storageId);
+      })
+    );
+
+    const allImageUrls = [
+      ...args.existingImageUrls,
+      ...newImageUrls.filter(url => url !== null) as string[]
+    ];
+
+    if (args.brand && args.brand.trim()) {
+      await createOrUpdateBrand(ctx, args.brand.trim());
+    }
+
+    await ctx.db.patch(args.postId, {
+      name: args.name,
+      brand: args.brand,
+      price: args.price,
+      condition: args.condition,
+      year: args.year,
+      description: args.description,
+      category: args.category,
+      subcategory: args.subcategory,
+      images: allImageUrls,
       defects: args.defects,
       updatedAt: Date.now(),
     });
