@@ -563,7 +563,7 @@ function ProfilePageContent() {
               <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <h3 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">О продавце</h3>
                 <p className="text-gray-500 leading-relaxed text-sm md:text-base italic">
-                  Расскажите потенциальным покупателям о себе. Нажмите "Редактировать профиль" чтобы добавить информацию.
+                  Расскажите потенциальным покупателям о себе. Нажмите &quot;Редактировать профиль&quot; чтобы добавить информацию.
                 </p>
               </div>
             )}
