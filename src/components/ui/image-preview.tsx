@@ -110,41 +110,43 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
     const imageElement = imageRef.current
     if (!imageElement || !isOpen) return
 
-    let touchStartHandler: (e: TouchEvent) => void
-    let touchMoveHandler: (e: TouchEvent) => void
-    let touchEndHandler: () => void
-
-    touchStartHandler = (e: TouchEvent) => {
+    const touchStartHandler = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        setLastTouchDistance(getTouchDistance(e.touches as any))
+        const distance = getTouchDistance(e.touches as any)
+        setLastTouchDistance(distance)
       } else if (e.touches.length === 1) {
         setIsDragging(true)
-        setDragStart({
-          x: e.touches[0].clientX - panOffset.x,
-          y: e.touches[0].clientY - panOffset.y
-        })
+        setDragStart(prev => ({
+          x: e.touches[0].clientX - prev.x,
+          y: e.touches[0].clientY - prev.y
+        }))
       }
     }
 
-    touchMoveHandler = (e: TouchEvent) => {
+    const touchMoveHandler = (e: TouchEvent) => {
       e.preventDefault()
       
       if (e.touches.length === 2) {
         const currentDistance = getTouchDistance(e.touches as any)
-        if (lastTouchDistance > 0) {
-          const scale = currentDistance / lastTouchDistance
-          setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
-        }
-        setLastTouchDistance(currentDistance)
-      } else if (e.touches.length === 1 && isDragging) {
-        setPanOffset({
-          x: e.touches[0].clientX - dragStart.x,
-          y: e.touches[0].clientY - dragStart.y
+        setLastTouchDistance(prevDistance => {
+          if (prevDistance > 0) {
+            const scale = currentDistance / prevDistance
+            setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
+          }
+          return currentDistance
+        })
+      } else if (e.touches.length === 1) {
+        setDragStart(prevStart => {
+          setPanOffset({
+            x: e.touches[0].clientX - prevStart.x,
+            y: e.touches[0].clientY - prevStart.y
+          })
+          return prevStart
         })
       }
     }
 
-    touchEndHandler = () => {
+    const touchEndHandler = () => {
       setIsDragging(false)
       setLastTouchDistance(0)
     }
@@ -158,7 +160,7 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
       imageElement.removeEventListener("touchmove", touchMoveHandler)
       imageElement.removeEventListener("touchend", touchEndHandler)
     }
-  }, [isOpen, lastTouchDistance, isDragging, dragStart.x, dragStart.y, panOffset.x, panOffset.y])
+  }, [isOpen])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
