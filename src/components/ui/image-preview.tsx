@@ -127,82 +127,48 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
     }
   }, [isOpen, goToPrevious, goToNext, onClose])
 
-  useEffect(() => {
-    const imageElement = imageRef.current
-    if (!imageElement || !isOpen) return
-
-    const touchStartHandler = (e: TouchEvent) => {
-      console.log('Touch start:', e.touches.length)
-      e.preventDefault()
-      e.stopPropagation()
-      
-      if (e.touches.length === 2) {
-        const distance = getTouchDistance(e.touches as any)
-        lastTouchDistanceRef.current = distance
-        setLastTouchDistance(distance)
-      } else if (e.touches.length === 1) {
-        isDraggingRef.current = true
-        const newDragStart = {
-          x: e.touches[0].clientX - panOffsetRef.current.x,
-          y: e.touches[0].clientY - panOffsetRef.current.y
-        }
-        dragStartRef.current = newDragStart
-        setIsDragging(true)
-        setDragStart(newDragStart)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const distance = getTouchDistance(e.touches)
+      lastTouchDistanceRef.current = distance
+      setLastTouchDistance(distance)
+    } else if (e.touches.length === 1) {
+      isDraggingRef.current = true
+      const newDragStart = {
+        x: e.touches[0].clientX - panOffsetRef.current.x,
+        y: e.touches[0].clientY - panOffsetRef.current.y
       }
+      dragStartRef.current = newDragStart
+      setIsDragging(true)
+      setDragStart(newDragStart)
     }
+  }
 
-    const touchMoveHandler = (e: TouchEvent) => {
-      console.log('Touch move:', e.touches.length, 'dragging:', isDraggingRef.current)
-      e.preventDefault()
-      e.stopPropagation()
-      
-      if (e.touches.length === 2) {
-        const currentDistance = getTouchDistance(e.touches as any)
-        if (lastTouchDistanceRef.current > 0) {
-          const scale = currentDistance / lastTouchDistanceRef.current
-          setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
-        }
-        lastTouchDistanceRef.current = currentDistance
-        setLastTouchDistance(currentDistance)
-      } else if (e.touches.length === 1 && isDraggingRef.current) {
-        const newPanOffset = {
-          x: e.touches[0].clientX - dragStartRef.current.x,
-          y: e.touches[0].clientY - dragStartRef.current.y
-        }
-        panOffsetRef.current = newPanOffset
-        setPanOffset(newPanOffset)
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const currentDistance = getTouchDistance(e.touches)
+      if (lastTouchDistanceRef.current > 0) {
+        const scale = currentDistance / lastTouchDistanceRef.current
+        setZoom(prev => Math.min(Math.max(prev * scale, 0.5), 5))
       }
+      lastTouchDistanceRef.current = currentDistance
+      setLastTouchDistance(currentDistance)
+    } else if (e.touches.length === 1 && isDraggingRef.current) {
+      const newPanOffset = {
+        x: e.touches[0].clientX - dragStartRef.current.x,
+        y: e.touches[0].clientY - dragStartRef.current.y
+      }
+      panOffsetRef.current = newPanOffset
+      setPanOffset(newPanOffset)
     }
+  }
 
-    const touchEndHandler = (e: TouchEvent) => {
-      console.log('Touch end')
-      e.preventDefault()
-      e.stopPropagation()
-      
-      isDraggingRef.current = false
-      lastTouchDistanceRef.current = 0
-      setIsDragging(false)
-      setLastTouchDistance(0)
-    }
-
-    // Add to both the container and document for better capture
-    imageElement.addEventListener("touchstart", touchStartHandler, { passive: false, capture: true })
-    imageElement.addEventListener("touchmove", touchMoveHandler, { passive: false, capture: true })
-    imageElement.addEventListener("touchend", touchEndHandler, { passive: false, capture: true })
-    
-    // Also add to document to ensure we catch all events
-    document.addEventListener("touchmove", touchMoveHandler, { passive: false })
-    document.addEventListener("touchend", touchEndHandler, { passive: false })
-
-    return () => {
-      imageElement.removeEventListener("touchstart", touchStartHandler, { capture: true })
-      imageElement.removeEventListener("touchmove", touchMoveHandler, { capture: true })
-      imageElement.removeEventListener("touchend", touchEndHandler, { capture: true })
-      document.removeEventListener("touchmove", touchMoveHandler)
-      document.removeEventListener("touchend", touchEndHandler)
-    }
-  }, [isOpen])
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    isDraggingRef.current = false
+    lastTouchDistanceRef.current = 0
+    setIsDragging(false)
+    setLastTouchDistance(0)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -288,9 +254,15 @@ export function ImagePreview({ images, isOpen, onClose, initialIndex = 0 }: Imag
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             style={{ 
               cursor: isDragging ? 'grabbing' : 'grab',
-              touchAction: 'none'
+              touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              pointerEvents: 'auto'
             }}
           >
             <div
