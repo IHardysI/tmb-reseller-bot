@@ -1,22 +1,12 @@
- "use client"
-
+"use client"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import {
-  Minus,
-  Plus,
-  Trash2,
-  Lock,
-  Star,
-  Award,
-  MessageCircle,
-} from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import Image from "next/image"
+import { Trash2, Lock, Star, Award, MessageCircle, MapPin } from "lucide-react"
 
-interface CartItem {
+interface CartItemData {
   id: string
   name: string
   brand: string
@@ -30,23 +20,18 @@ interface CartItem {
   sellerAvatar: string
   sellerTrust: "bronze" | "silver" | "gold"
   sellerRating: number
+  location?: string
 }
 
-interface CartItemComponentProps {
-  item: CartItem
+interface CartItemProps {
+  item: CartItemData
   onUpdateQuantity: (id: string, quantity: number) => void
   onRemove: (id: string) => void
-  onContactSeller: (id: string) => void
+  onContactSeller: (sellerId: string) => void
   showSeparator?: boolean
 }
 
-export default function CartItemComponent({
-  item,
-  onUpdateQuantity,
-  onRemove,
-  onContactSeller,
-  showSeparator = true
-}: CartItemComponentProps) {
+export default function CartItemComponent({ item, onUpdateQuantity, onRemove, onContactSeller, showSeparator }: CartItemProps) {
   const getTrustIcon = (trust: string) => {
     const colors = {
       bronze: "text-amber-600",
@@ -57,107 +42,98 @@ export default function CartItemComponent({
   }
 
   return (
-    <div>
-      <div className="flex space-x-4">
-        <div className="flex-shrink-0">
-          <Image
-            src={item.image || "/placeholder.svg"}
-            alt={item.name}
-            width={96}
-            height={96}
-            className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-lg border"
-          />
-        </div>
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      <CardContent className="p-4 lg:p-6">
+        <div className="flex flex-col gap-4">
+          <div className="w-full sm:hidden">
+            <img
+              src={item.image || "/placeholder.svg"}
+              alt={item.name}
+              className="w-full h-48 object-cover rounded-xl border"
+            />
+          </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1 min-w-0 pr-4">
-              <h3 className="font-medium text-sm md:text-base line-clamp-2">{item.name}</h3>
-              <p className="text-sm text-gray-600">{item.brand}</p>
-              <div className="flex items-center space-x-2 mt-1">
-                <Badge variant="outline" className="text-xs">
+          <div className="flex gap-4">
+            <div className="hidden sm:block flex-shrink-0">
+              <img
+                src={item.image || "/placeholder.svg"}
+                alt={item.name}
+                className="w-28 h-28 lg:w-32 lg:h-32 object-cover rounded-xl border"
+              />
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base lg:text-lg line-clamp-2 mb-1">{item.name}</h3>
+                  <p className="text-gray-600 font-medium">{item.brand}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-gray-400 hover:text-red-500 hover:bg-red-50 flex-shrink-0 ml-2"
+                  onClick={() => onRemove(item.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="text-xs font-medium">
                   {item.condition}
                 </Badge>
-                <span className="text-xs text-gray-500">{item.year} год</span>
+                <Badge variant="secondary" className="text-xs">
+                  {item.year} год
+                </Badge>
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-red-500"
-              onClick={() => onRemove(item.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={item.sellerAvatar || "/placeholder.svg"} />
-                <AvatarFallback className="text-xs">{item.sellerName.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="flex items-center space-x-1">
-                {getTrustIcon(item.sellerTrust)}
-                <span className="text-xs text-gray-600">{item.sellerName}</span>
-                <div className="flex items-center ml-2">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs text-gray-600 ml-1">{item.sellerRating}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={item.sellerAvatar || "/placeholder.svg"} />
+                    <AvatarFallback className="text-xs font-medium">{item.sellerName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="flex items-center space-x-2">
+                      {getTrustIcon(item.sellerTrust)}
+                      <span className="text-sm font-medium text-gray-900">{item.sellerName}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-xs text-gray-600">
+                      <div className="flex items-center">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-1" />
+                        <span>{item.sellerRating}</span>
+                      </div>
+                      {item.location && (
+                        <>
+                          <span>•</span>
+                          <div className="flex items-center">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            <span>{item.location}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-xs"
-              onClick={() => onContactSeller(item.id)}
-            >
-              <MessageCircle className="h-3 w-3 mr-1" />
-              Написать
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center border rounded-lg">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                  disabled={item.quantity <= 1}
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <span className="px-3 py-1 text-sm font-medium">{item.quantity}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                >
-                  <Plus className="h-3 w-3" />
+                <Button variant="outline" size="sm" className="text-xs bg-transparent" onClick={() => onContactSeller(item.id)}>
+                  <MessageCircle className="h-3 w-3 mr-1" />
+                  Написать
                 </Button>
               </div>
-            </div>
 
-            <div className="text-right">
-              <div className="flex items-center space-x-1">
-                <span className="font-bold text-lg">
-                  {(item.price * item.quantity).toLocaleString()} ₽
-                </span>
-                <Lock className="h-4 w-4 text-green-600" />
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl lg:text-2xl font-bold text-gray-900">{(item.price * item.quantity).toLocaleString()} ₽</span>
+                  <Lock className="h-4 w-4 text-green-600" />
+                </div>
+                {item.originalPrice && (
+                  <span className="text-sm text-gray-400 line-through">{(item.originalPrice * item.quantity).toLocaleString()} ₽</span>
+                )}
               </div>
-              {item.originalPrice && (
-                <span className="text-sm text-gray-400 line-through">
-                  {(item.originalPrice * item.quantity).toLocaleString()} ₽
-                </span>
-              )}
             </div>
           </div>
         </div>
-      </div>
-      {showSeparator && <Separator className="mt-4" />}
-    </div>
+      </CardContent>
+    </Card>
   )
-} 
+}

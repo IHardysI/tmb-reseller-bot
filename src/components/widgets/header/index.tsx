@@ -12,9 +12,10 @@ import { useCart } from "@/contexts/CartContext"
 
 interface HeaderProps {
   title: string
+  subtitle?: string
 }
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({ title, subtitle }: HeaderProps) {
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
   
@@ -23,7 +24,12 @@ export default function Header({ title }: HeaderProps) {
       <div className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-bold">{title}</h1>
+            <div>
+              <h1 className="text-xl font-bold">{title}</h1>
+              {subtitle && (
+                <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>
+              )}
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <div className="hidden md:flex items-center gap-2">

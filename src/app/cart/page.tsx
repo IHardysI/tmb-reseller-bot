@@ -3,113 +3,50 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import {
-  ShoppingBag,
-  CreditCard,
-  Truck,
-  Shield,
-  MessageCircle,
-} from "lucide-react"
+import { ShoppingBag, CreditCard, Truck, Shield, MessageCircle } from "lucide-react"
 import Header from "@/components/widgets/header"
 import CartItemComponent from "@/components/widgets/cart-item"
 import AddSampleItems from "@/components/widgets/add-sample-items"
 import { useCart } from "@/contexts/CartContext"
 
-interface CartItem {
-  id: string
-  name: string
-  brand: string
-  price: number
-  originalPrice?: number
-  image: string
-  condition: string
-  year: number
-  quantity: number
-  sellerName: string
-  sellerAvatar: string
-  sellerTrust: "bronze" | "silver" | "gold"
-  sellerRating: number
-}
-
-const mockCartItems: CartItem[] = [
-  {
-    id: "1",
-    name: "Классическая сумка Neverfull",
-    brand: "Louis Vuitton",
-    price: 85000,
-    originalPrice: 150000,
-    image: "/placeholder.svg?height=400&width=400",
-    condition: "Как новое",
-    year: 2022,
-    quantity: 1,
-    sellerName: "Анна К.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
-    sellerTrust: "gold",
-    sellerRating: 4.8,
-  },
-  {
-    id: "2",
-    name: "Кроссовки Air Jordan 1 Retro",
-    brand: "Nike",
-    price: 25000,
-    originalPrice: 35000,
-    image: "/placeholder.svg?height=400&width=400",
-    condition: "С дефектами",
-    year: 2021,
-    quantity: 1,
-    sellerName: "Максим П.",
-    sellerAvatar: "/placeholder.svg?height=48&width=48",
-    sellerTrust: "silver",
-    sellerRating: 4.2,
-  },
-]
-
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart, addToCart } = useCart()
   const [deliveryMethod, setDeliveryMethod] = useState("courier")
-  const [promoCode, setPromoCode] = useState("")
-  const [promoDiscount, setPromoDiscount] = useState(0)
 
-  const contactSeller = (id: string) => {
-    const item = cartItems.find(item => item.id === id)
+  const handleMessage = (sellerId: string) => {
+    const item = cartItems.find(item => item.id === sellerId)
     if (item) {
       alert(`Связаться с продавцом: ${item.sellerName}`)
     }
   }
 
-  const applyPromoCode = () => {
-    if (promoCode.toLowerCase() === "save10") {
-      setPromoDiscount(0.1)
-    } else {
-      setPromoDiscount(0)
-    }
+  const handleMessageAllSellers = () => {
+    alert("Связаться со всеми продавцами")
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const deliveryFee = deliveryMethod === "courier" ? 500 : 0
   const serviceFee = Math.round(subtotal * 0.03)
-  const discount = Math.round(subtotal * promoDiscount)
-  const total = subtotal + deliveryFee + serviceFee - discount
+  const total = subtotal + deliveryFee + serviceFee
 
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header title="Корзина" />
-        
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-          <div className="bg-gray-100 rounded-full p-6 mb-6">
-            <ShoppingBag className="h-12 w-12 text-gray-400" />
+
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
+          <div className="bg-gray-100 rounded-full p-8 mb-6">
+            <ShoppingBag className="h-16 w-16 text-gray-400" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Корзина пуста</h2>
-          <p className="text-gray-600 text-center mb-8 max-w-md">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Корзина пуста</h2>
+          <p className="text-gray-600 text-center mb-8 max-w-md leading-relaxed">
             Добавьте товары в корзину, чтобы оформить заказ. Все покупки защищены эскроу-сервисом.
           </p>
           <AddSampleItems />
-          <Button onClick={() => window.history.back()} size="lg" className="mt-4">
+          <Button onClick={() => window.history.back()} size="lg" className="px-8 mt-4">
             Продолжить покупки
           </Button>
         </div>
@@ -119,120 +56,107 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="Корзина" />
+      <Header title="Корзина" subtitle={`${cartItems.length} ${cartItems.length === 1 ? "товар" : cartItems.length < 5 ? "товара" : "товаров"}`} />
 
-      <div className="max-w-6xl mx-auto p-4 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <ShoppingBag className="h-5 w-5" />
-                  <span>Товары в корзине</span>
-                  <Badge variant="secondary" className="ml-2">
-                    {cartItems.length} {cartItems.length === 1 ? "товар" : "товара"}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cartItems.map((item, index) => (
-                  <CartItemComponent
-                    key={item.id}
-                    item={item}
-                    onUpdateQuantity={updateQuantity}    
-                    onRemove={removeFromCart}
-                    onContactSeller={contactSeller}
-                    showSeparator={index < cartItems.length - 1}
-                  />
-                ))}
-              </CardContent>
-            </Card>
+      <div className="max-w-7xl mx-auto p-4 lg:p-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+          <div className="xl:col-span-2">
+            <div className="space-y-4">
+              {cartItems.map((item) => (
+                <CartItemComponent 
+                  key={item.id} 
+                  item={{
+                    ...item,
+                    location: "Москва"
+                  }} 
+                  onRemove={removeFromCart} 
+                  onContactSeller={handleMessage}
+                  onUpdateQuantity={updateQuantity}
+                />
+              ))}
+            </div>
 
-            <Card>
+            <Card className="mt-6">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2 text-lg">
                   <Truck className="h-5 w-5" />
-                  <span>Способ доставки</span>
+                  <span>Способ получения</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod}>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod} className="space-y-3">
+                  <div className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-gray-50 transition-colors">
                     <RadioGroupItem value="courier" id="courier" />
                     <Label htmlFor="courier" className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">Курьерская доставка</div>
-                          <div className="text-sm text-gray-600">1-2 рабочих дня</div>
-                        </div>
-                        <span className="font-medium">500 ₽</span>
+                      <div>
+                        <div className="font-medium">Курьерская доставка</div>
+                        <div className="text-sm text-gray-600">1-2 рабочих дня</div>
                       </div>
                     </Label>
+                    <span className="font-semibold text-gray-900 ml-auto">500 ₽</span>
                   </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-gray-50 transition-colors">
                     <RadioGroupItem value="pickup" id="pickup" />
                     <Label htmlFor="pickup" className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">Самовывоз</div>
-                          <div className="text-sm text-gray-600">Встреча с продавцом</div>
-                        </div>
-                        <span className="font-medium text-green-600">Бесплатно</span>
+                      <div>
+                        <div className="font-medium">Самовывоз</div>
+                        <div className="text-sm text-gray-600">Встреча с продавцом</div>
                       </div>
                     </Label>
+                    <span className="font-semibold text-green-600 ml-auto">Бесплатно</span>
                   </div>
                 </RadioGroup>
               </CardContent>
             </Card>
           </div>
 
-          <div className="space-y-4">
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+          <div className="xl:sticky xl:top-24 xl:self-start">
+            <Card className="shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center space-x-2 text-lg">
                   <CreditCard className="h-5 w-5" />
                   <span>Итого к оплате</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span>Товары ({cartItems.length})</span>
-                    <span>{subtotal.toLocaleString()} ₽</span>
+                    <span className="text-gray-600">
+                      Товары ({cartItems.length} {cartItems.length === 1 ? "шт" : "шт"})
+                    </span>
+                    <span className="font-medium">{subtotal.toLocaleString()} ₽</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Доставка</span>
-                    <span>{deliveryFee > 0 ? `${deliveryFee.toLocaleString()} ₽` : "Бесплатно"}</span>
+                    <span className="text-gray-600">Доставка</span>
+                    <span className="font-medium">
+                      {deliveryFee > 0 ? `${deliveryFee.toLocaleString()} ₽` : "Бесплатно"}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Сервисный сбор</span>
-                    <span>{serviceFee.toLocaleString()} ₽</span>
+                    <span className="text-gray-600">Сервисный сбор</span>
+                    <span className="font-medium">{serviceFee.toLocaleString()} ₽</span>
                   </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Скидка</span>
-                      <span>-{discount.toLocaleString()} ₽</span>
-                    </div>
-                  )}
                   <Separator />
-                  <div className="flex justify-between font-bold text-lg">
+                  <div className="flex justify-between text-lg font-bold">
                     <span>Итого</span>
                     <span>{total.toLocaleString()} ₽</span>
                   </div>
                 </div>
 
-                <Button className="w-full" size="lg">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Связаться с продавцами
+                <Button className="w-full h-12 text-base font-medium" size="lg" onClick={handleMessageAllSellers}>
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  {cartItems.length > 1 ? "Связаться с продавцами" : "Связаться с продавцом"}
                 </Button>
 
-                <Card className="bg-green-50 border-green-200">
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
                   <CardContent className="p-4">
                     <div className="flex items-start space-x-3">
-                      <Shield className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div className="bg-green-100 rounded-full p-2 flex-shrink-0">
+                        <Shield className="h-4 w-4 text-green-600" />
+                      </div>
                       <div>
-                        <h4 className="font-medium text-green-800 text-sm">Эскроу-платеж</h4>
-                        <p className="text-sm text-green-700 mt-1 leading-relaxed">
+                        <h4 className="font-semibold text-green-800 text-sm mb-1">Эскроу-платеж</h4>
+                        <p className="text-sm text-green-700 leading-relaxed">
                           Деньги переводятся на эскроу-счет и замораживаются до получения товара. После подтверждения
                           получения средства автоматически переводятся продавцу.
                         </p>
@@ -241,19 +165,19 @@ export default function CartPage() {
                   </CardContent>
                 </Card>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Способы оплаты</Label>
-                  <div className="flex space-x-2">
-                    <div className="flex items-center justify-center w-12 h-8 bg-blue-600 rounded text-white text-xs font-bold">
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold text-gray-900">Способы оплаты</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="flex items-center justify-center h-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg text-white text-xs font-bold shadow-sm">
                       VISA
                     </div>
-                    <div className="flex items-center justify-center w-12 h-8 bg-red-600 rounded text-white text-xs font-bold">
+                    <div className="flex items-center justify-center h-10 bg-gradient-to-r from-red-600 to-red-700 rounded-lg text-white text-xs font-bold shadow-sm">
                       MC
                     </div>
-                    <div className="flex items-center justify-center w-12 h-8 bg-yellow-500 rounded text-white text-xs font-bold">
+                    <div className="flex items-center justify-center h-10 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg text-white text-xs font-bold shadow-sm">
                       МИР
                     </div>
-                    <div className="flex items-center justify-center w-12 h-8 bg-purple-600 rounded text-white text-xs font-bold">
+                    <div className="flex items-center justify-center h-10 bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg text-white text-xs font-bold shadow-sm">
                       SBP
                     </div>
                   </div>
