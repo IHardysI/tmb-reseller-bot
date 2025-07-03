@@ -13,7 +13,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ShoppingBag, CreditCard, Truck, Shield, MessageCircle } from "lucide-react"
 import Header from "@/components/widgets/header"
 import CartItemComponent from "@/components/widgets/cart-item"
-import AddSampleItems from "@/components/widgets/add-sample-items"
 import { useCart } from "@/contexts/CartContext"
 
 export default function CartPage() {
@@ -92,7 +91,6 @@ export default function CartPage() {
           <p className="text-gray-600 text-center mb-8 max-w-md leading-relaxed">
             Добавьте товары в корзину, чтобы оформить заказ. Все покупки защищены эскроу-сервисом.
           </p>
-          <AddSampleItems />
           <Button onClick={() => window.history.back()} size="lg" className="px-8 mt-4">
             Продолжить покупки
           </Button>

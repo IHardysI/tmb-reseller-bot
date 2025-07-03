@@ -17,6 +17,8 @@ import { ComplaintDialog } from "@/components/ui/complaint-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { PageLoader } from '@/components/ui/loader'
+import ProductDetail from '@/components/widgets/product-detail'
+import { Id } from "@/../convex/_generated/dataModel"
 
 interface Message {
   id: string
@@ -74,6 +76,8 @@ export default function ChatPage({ params }: ChatPageProps) {
     userId: null
   })
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -363,7 +367,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         </DropdownMenu>
       </div>
 
-      <Card className="mx-4 mt-4 mb-2 flex-shrink-0">
+      <Card className="mx-4 mt-4 mb-2 flex-shrink-0 py-0! cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { setSelectedProductId(chatData.itemId); setProductDialogOpen(true); }}>
         <CardContent className="p-4">
           <div className="flex items-center space-x-3">
             <img
@@ -703,6 +707,15 @@ export default function ChatPage({ params }: ChatPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedProductId && (
+        <ProductDetail
+          postId={selectedProductId as Id<'posts'>}
+          isOpen={productDialogOpen}
+          onClose={() => setProductDialogOpen(false)}
+          hideMessageSellerButton
+        />
+      )}
     </div>
   )
 } 

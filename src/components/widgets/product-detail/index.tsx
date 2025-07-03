@@ -36,9 +36,10 @@ interface ProductDetailProps {
   onClose: () => void
   onEdit?: (post: any) => void
   onDelete?: (postId: string) => void
+  hideMessageSellerButton?: boolean
 }
 
-export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelete }: ProductDetailProps) {
+export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelete, hideMessageSellerButton }: ProductDetailProps) {
   const telegramUser = useTelegramUser()
   const { addToCart, isInCart } = useCart()
   const router = useRouter()
@@ -275,17 +276,19 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
                     {isInCart(post._id) ? 'Добавлено' : 'В корзину'}
                   </span>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold"
-                  onClick={handleMessageSeller}
-                  disabled={!currentUser}
-                >
-                  <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                  <span className="hidden sm:inline">Написать продавцу</span>
-                  <span className="sm:hidden">Написать</span>
-                </Button>
+                {!hideMessageSellerButton && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold"
+                    onClick={handleMessageSeller}
+                    disabled={!currentUser}
+                  >
+                    <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                    <span className="hidden sm:inline">Написать продавцу</span>
+                    <span className="sm:hidden">Написать</span>
+                  </Button>
+                )}
               </div>
             )}
 
