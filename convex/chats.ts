@@ -100,6 +100,19 @@ export const getChatById = query({
       .order("asc")
       .collect();
 
+    const messagesWithUrls = await Promise.all(
+      messages.map(async (msg) => ({
+        id: msg._id,
+        content: msg.content,
+        senderId: msg.senderId === args.userId ? "current-user" : msg.senderId,
+        timestamp: new Date(msg.createdAt).toISOString(),
+        type: msg.type,
+        fileName: msg.fileName,
+        fileSize: msg.fileSize,
+        fileUrl: msg.fileStorageId ? await ctx.storage.getUrl(msg.fileStorageId) : undefined,
+      }))
+    );
+
     return {
       id: chat._id,
       itemId: post?._id,
@@ -114,16 +127,7 @@ export const getChatById = query({
         isOnline: false,
       },
       userRole: chat.buyerId === args.userId ? "buyer" : "seller",
-      messages: messages.map(msg => ({
-        id: msg._id,
-        content: msg.content,
-        senderId: msg.senderId === args.userId ? "current-user" : msg.senderId,
-        timestamp: new Date(msg.createdAt).toISOString(),
-        type: msg.type,
-        fileName: msg.fileName,
-        fileSize: msg.fileSize,
-        fileUrl: msg.fileStorageId ? `/api/files/${msg.fileStorageId}` : undefined,
-      })),
+      messages: messagesWithUrls,
     };
   },
 });

@@ -11,6 +11,7 @@ import Header from "@/components/widgets/header"
 import { ComplaintDialog } from "@/components/ui/complaint-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
+import { PageLoader } from '@/components/ui/loader'
 
 interface ChatItemData {
   id: string
@@ -147,29 +148,25 @@ export default function MessagesPage() {
 
   if (!telegramUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500">Загрузка...</p>
-        </div>
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <PageLoader text="Загрузка..." />
       </div>
     )
   }
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500">Загрузка пользователя...</p>
-        </div>
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <PageLoader text="Загрузка пользователя..." />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <Header title="Сообщения" />
 
-      <div className="bg-white border-b">
+      <div className="bg-white border-b flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex space-x-1 bg-gray-50 p-1 rounded-xl">
             <button
@@ -228,37 +225,39 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        {!chats ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Загрузка чатов...</p>
-          </div>
-        ) : filteredChats.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Нет сообщений</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredChats.map((chat) => (
-              <ChatItem
-                key={chat.id}
-                id={chat.id}
-                itemId={chat.itemId}
-                itemName={chat.itemName}
-                itemImage={chat.itemImage}
-                itemPrice={chat.itemPrice}
-                otherParticipant={chat.otherParticipant}
-                lastMessage={chat.lastMessage}
-                unreadCount={chat.unreadCount}
-                userRole={chat.userRole}
-                onClick={() => handleChatClick(chat.id)}
-                onDelete={() => setDeleteDialog({ open: true, chatId: chat.id })}
-                onBlock={() => handleBlockUser(chat.id)}
-                onReport={() => handleReportUser(chat.id)}
-              />
-            ))}
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-3xl mx-auto px-4 py-6">
+          {!chats ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Загрузка чатов...</p>
+            </div>
+          ) : filteredChats.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Нет сообщений</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredChats.map((chat) => (
+                <ChatItem
+                  key={chat.id}
+                  id={chat.id}
+                  itemId={chat.itemId}
+                  itemName={chat.itemName}
+                  itemImage={chat.itemImage}
+                  itemPrice={chat.itemPrice}
+                  otherParticipant={chat.otherParticipant}
+                  lastMessage={chat.lastMessage}
+                  unreadCount={chat.unreadCount}
+                  userRole={chat.userRole}
+                  onClick={() => handleChatClick(chat.id)}
+                  onDelete={() => setDeleteDialog({ open: true, chatId: chat.id })}
+                  onBlock={() => handleBlockUser(chat.id)}
+                  onReport={() => handleReportUser(chat.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <ComplaintDialog

@@ -34,6 +34,7 @@ import { PageLoader } from "@/components/ui/loader"
 
 interface Product {
   id: string
+  sellerId?: string
   name: string
   brand: string
   price: number
@@ -102,6 +103,7 @@ function MarketplaceContent() {
     
     let filtered = allPosts.map(post => ({
       id: post._id,
+      sellerId: post.userId,
       name: post.name,
       brand: (post.brand || "Без бренда") as string,
       price: post.price,

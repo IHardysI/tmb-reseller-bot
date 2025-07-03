@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useQuery, useMutation } from "convex/react"
+import { useRouter } from "next/navigation"
 import { api } from "@/../convex/_generated/api"
 import { Id } from "@/../convex/_generated/dataModel"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
+import { useCart } from "@/contexts/CartContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -37,16 +39,19 @@ interface ProductDetailProps {
 }
 
 export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelete }: ProductDetailProps) {
+  const telegramUser = useTelegramUser()
+  const { addToCart, isInCart } = useCart()
+  const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false)
-  const telegramUser = useTelegramUser()
   
   const post = useQuery(api.posts.getPostById, postId ? { postId } : "skip")
-  const currentUser = useQuery(
-    api.users.getUserByTelegramId, 
-    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
   )
+  
+  const createChat = useMutation(api.chats.createChat)
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
   const incrementViews = useMutation(api.posts.incrementViews)
@@ -60,11 +65,50 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
   if (!post || !postId) return null
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % post.images.length)
+    if (post && currentImageIndex < post.images.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1)
+    }
   }
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + post.images.length) % post.images.length)
+    if (post && currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1)
+    }
+  }
+
+  const handleAddToCart = () => {
+    if (!post || isInCart(post._id)) return
+    
+    addToCart({
+      id: post._id,
+      postId: post._id,
+      sellerId: post.userId,
+      name: post.name,
+      brand: post.brand || "Без бренда",
+      price: post.price,
+      image: post.images[0] || "/placeholder.svg",
+      condition: post.condition,
+      year: post.year,
+      sellerName: post.sellerName || "Продавец",
+      sellerAvatar: "/placeholder.svg",
+      sellerTrust: "bronze",
+      sellerRating: 4.5
+    })
+  }
+
+  const handleMessageSeller = async () => {
+    if (!post || !currentUser) return
+    
+    try {
+      const chatId = await createChat({
+        postId: post._id,
+        buyerId: currentUser._id,
+      })
+      
+      router.push(`/messages/${chatId}`)
+    } catch (error) {
+      console.error("Error creating chat:", error)
+    }
   }
 
   const handleToggleLike = async () => {
@@ -91,8 +135,8 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
     }
   }
 
+  const isOwned = currentUser && post.userId === currentUser._id
   const isLiked = currentUser && post.likedBy?.includes(currentUser._id) || false
-  const isOwned = currentUser && post.telegramId === telegramUser?.userId || false
   const likesCount = post.likesCount || 0
   const viewsCount = post.views || 0
 
@@ -215,12 +259,29 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
             {/* Action Buttons */}
             {!isOwned && (
               <div className="flex gap-2 w-full">
-                <Button size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                <Button 
+                  size="sm" 
+                  className={`w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold ${
+                    isInCart(post._id) ? 'bg-green-600 hover:bg-green-700' : ''
+                  }`}
+                  onClick={handleAddToCart}
+                  disabled={isInCart(post._id)}
+                >
                   <ShoppingCart className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                  <span className="hidden sm:inline">Добавить в корзину</span>
-                  <span className="sm:hidden">В корзину</span>
+                  <span className="hidden sm:inline">
+                    {isInCart(post._id) ? 'Добавлено в корзину' : 'Добавить в корзину'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isInCart(post._id) ? 'Добавлено' : 'В корзину'}
+                  </span>
                 </Button>
-                <Button variant="outline" size="sm" className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-1/2 px-6 h-10 text-sm lg:px-12 lg:h-14 lg:text-lg font-semibold"
+                  onClick={handleMessageSeller}
+                  disabled={!currentUser}
+                >
                   <MessageCircle className="h-4 w-4 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
                   <span className="hidden sm:inline">Написать продавцу</span>
                   <span className="sm:hidden">Написать</span>

@@ -108,27 +108,31 @@ function ProfilePageContent() {
     verificationStatus: currentUser?.verificationStatus || "unverified",
   }
 
-  const mapPostToProduct = (post: any, isOwnPost = false, isFavorite = false) => ({
+  const mapPostToProduct = (post: any, isOwned: boolean, isFavorite: boolean) => ({
     id: post._id,
+    sellerId: post.userId,
     name: post.name,
     brand: post.brand || "Без бренда",
     price: post.price,
     images: post.images,
     condition: post.condition,
     year: post.year,
-    aiRating: post.aiRating || 0,
-    aiRecommendation: post.aiRecommendation || "Цена адекватна",
-    views: post.views || 0,
-    likesCount: post.likesCount || 0,
-    status: post.isActive ? "active" : post.soldAt ? "sold" : "draft",
     description: post.description,
     category: post.category || "",
     subcategory: post.subcategory,
-    defects: post.defects || [],
+    defects: post.defects.map((d: any) => ({
+      description: d.description,
+      location: d.location,
+    })),
     isFavorite,
-    isOwned: isOwnPost,
-    sellerName: isOwnPost ? (currentUser?.firstName || "Продавец") : post.sellerName || "Продавец",
-    sellerCity: isOwnPost ? (currentUser?.city || "Город") : post.sellerCity || "Город",
+    aiRating: post.aiRating,
+    aiRecommendation: post.aiRecommendation,
+    aiExplanation: post.aiExplanation,
+    sellerName: post.sellerName,
+    sellerCity: post.sellerCity,
+    likesCount: post.likesCount,
+    views: post.views,
+    isOwned,
   })
 
   const getFilteredItems = () => {

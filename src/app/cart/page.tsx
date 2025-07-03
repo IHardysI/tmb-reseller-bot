@@ -1,6 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useQuery, useMutation } from "convex/react"
+import { api } from "../../../convex/_generated/api"
+import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -15,16 +19,59 @@ import { useCart } from "@/contexts/CartContext"
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart, addToCart } = useCart()
   const [deliveryMethod, setDeliveryMethod] = useState("courier")
+  const router = useRouter()
+  const telegramUser = useTelegramUser()
+  
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
+  )
+  
+  const createChat = useMutation(api.chats.createChat)
 
-  const handleMessage = (sellerId: string) => {
-    const item = cartItems.find(item => item.id === sellerId)
-    if (item) {
-      alert(`Связаться с продавцом: ${item.sellerName}`)
+  const handleMessage = async (itemId: string) => {
+    if (!currentUser) return
+    
+    const item = cartItems.find(item => item.id === itemId)
+    if (!item) return
+    
+    try {
+      const chatId = await createChat({
+        postId: item.postId as any,
+        buyerId: currentUser._id,
+      })
+      
+      router.push(`/messages/${chatId}`)
+    } catch (error) {
+      console.error("Error creating chat:", error)
     }
   }
 
-  const handleMessageAllSellers = () => {
-    alert("Связаться со всеми продавцами")
+  const handleMessageAllSellers = async () => {
+    if (!currentUser) return
+    
+    const uniqueSellers = Array.from(new Set(cartItems.map(item => item.sellerId)))
+    
+    try {
+      const chatPromises = uniqueSellers.map(async (sellerId) => {
+        const item = cartItems.find(item => item.sellerId === sellerId)
+        if (!item) return null
+        
+        return await createChat({
+          postId: item.postId as any,
+          buyerId: currentUser._id,
+        })
+      })
+      
+      const chatIds = await Promise.all(chatPromises)
+      
+      if (chatIds.length === 1) {
+        router.push(`/messages/${chatIds[0]}`)
+      } else {
+        router.push("/messages")
+      }
+    } catch (error) {
+      console.error("Error creating chats:", error)
+    }
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)

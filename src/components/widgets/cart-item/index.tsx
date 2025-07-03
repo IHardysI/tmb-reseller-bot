@@ -8,6 +8,8 @@ import { Trash2, Lock, Star, Award, MessageCircle, MapPin } from "lucide-react"
 
 interface CartItemData {
   id: string
+  postId: string
+  sellerId: string
   name: string
   brand: string
   price: number
@@ -27,7 +29,7 @@ interface CartItemProps {
   item: CartItemData
   onUpdateQuantity: (id: string, quantity: number) => void
   onRemove: (id: string) => void
-  onContactSeller: (sellerId: string) => void
+  onContactSeller: (itemId: string) => void
   showSeparator?: boolean
 }
 

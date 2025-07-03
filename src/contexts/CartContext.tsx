@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 interface CartItem {
   id: string
+  postId: string
+  sellerId: string
   name: string
   brand: string
   price: number
@@ -26,6 +28,7 @@ interface CartContextType {
   clearCart: () => void
   getCartItemsCount: () => number
   getCartTotal: () => number
+  isInCart: (id: string) => boolean
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -88,6 +91,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
   }
 
+  const isInCart = (id: string) => {
+    return cartItems.some(item => item.id === id)
+  }
+
   const value: CartContextType = {
     cartItems,
     addToCart,
@@ -95,7 +102,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     updateQuantity,
     clearCart,
     getCartItemsCount,
-    getCartTotal
+    getCartTotal,
+    isInCart
   }
 
   return (

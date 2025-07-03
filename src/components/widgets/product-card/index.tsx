@@ -6,6 +6,7 @@ import { useCart } from "@/contexts/CartContext"
 
 interface Product {
   id: string
+  sellerId?: string
   name: string
   brand: string
   price: number
@@ -40,7 +41,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onProductClick, onToggleFavorite, onEdit, onDelete, priority = false }: ProductCardProps) {
-  const { addToCart } = useCart()
+  const { addToCart, isInCart } = useCart()
   
   const getTrustIcon = () => {
     return <Award className="h-4 w-4 text-amber-600" />
@@ -52,20 +53,26 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation()
-    addToCart({
-      id: product.id,
-      name: product.name,
-      brand: product.brand,
-      price: product.price,
-      image: product.images[0] || "/placeholder.svg",
-      condition: product.condition,
-      year: product.year,
-      sellerName: product.sellerName || "Продавец",
-      sellerAvatar: "/placeholder.svg",
-      sellerTrust: "bronze",
-      sellerRating: 4.5
-    })
+    if (!isInCart(product.id)) {
+      addToCart({
+        id: product.id,
+        postId: product.id,
+        sellerId: product.sellerId || "unknown-seller",
+        name: product.name,
+        brand: product.brand,
+        price: product.price,
+        image: product.images[0] || "/placeholder.svg",
+        condition: product.condition,
+        year: product.year,
+        sellerName: product.sellerName || "Продавец",
+        sellerAvatar: "/placeholder.svg",
+        sellerTrust: "bronze",
+        sellerRating: 4.5
+      })
+    }
   }
+
+  const itemInCart = isInCart(product.id)
 
   return (
     <Card
@@ -177,10 +184,12 @@ export default function ProductCard({ product, onProductClick, onToggleFavorite,
             {!product.isOwned && (
               <Button 
                 size="sm" 
-                className="w-full text-xs h-7"
+                className={`w-full text-xs h-7 ${itemInCart ? 'bg-green-600 hover:bg-green-700' : ''}`}
                 onClick={handleAddToCart}
+                disabled={itemInCart}
               >
-                <ShoppingCart className="h-2 w-2 mr-1" />В корзину
+                <ShoppingCart className="h-2 w-2 mr-1" />
+                {itemInCart ? 'Добавлено' : 'В корзину'}
               </Button>
             )}
           </div>
