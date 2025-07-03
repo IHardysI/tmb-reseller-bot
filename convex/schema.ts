@@ -91,4 +91,68 @@ export default defineSchema({
     .index("by_reviewer", ["reviewerId"])
     .index("by_post", ["postId"])
     .index("by_rating", ["rating"]),
+
+  chats: defineTable({
+    postId: v.id("posts"),
+    buyerId: v.id("users"),
+    sellerId: v.id("users"),
+    lastMessageId: v.optional(v.id("messages")),
+    lastMessageAt: v.optional(v.number()),
+    createdAt: v.number(),
+    isActive: v.boolean(),
+  }).index("by_buyer", ["buyerId"])
+    .index("by_seller", ["sellerId"])
+    .index("by_post", ["postId"])
+    .index("by_participants", ["buyerId", "sellerId"])
+    .index("by_active_last_message", ["isActive", "lastMessageAt"]),
+
+  messages: defineTable({
+    chatId: v.id("chats"),
+    senderId: v.id("users"),
+    content: v.string(),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("file")),
+    fileName: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    fileStorageId: v.optional(v.id("_storage")),
+    createdAt: v.number(),
+    isRead: v.boolean(),
+    readAt: v.optional(v.number()),
+  }).index("by_chat", ["chatId"])
+    .index("by_sender", ["senderId"])
+    .index("by_chat_created", ["chatId", "createdAt"])
+    .index("by_unread", ["isRead"]),
+
+  userBlocks: defineTable({
+    blockerId: v.id("users"),
+    blockedUserId: v.id("users"),
+    reason: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_blocker", ["blockerId"])
+    .index("by_blocked", ["blockedUserId"])
+    .index("by_block_pair", ["blockerId", "blockedUserId"]),
+
+  complaints: defineTable({
+    complainantId: v.id("users"),
+    reportedUserId: v.id("users"),
+    chatId: v.optional(v.id("chats")),
+    postId: v.optional(v.id("posts")),
+    category: v.union(
+      v.literal("spam"),
+      v.literal("fraud"),
+      v.literal("inappropriate_content"),
+      v.literal("fake_product"),
+      v.literal("harassment"),
+      v.literal("other")
+    ),
+    description: v.string(),
+    status: v.union(v.literal("pending"), v.literal("reviewed"), v.literal("resolved"), v.literal("dismissed")),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    resolution: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_complainant", ["complainantId"])
+    .index("by_reported_user", ["reportedUserId"])
+    .index("by_status", ["status"])
+    .index("by_category", ["category"])
+    .index("by_chat", ["chatId"]),
 }); 
