@@ -23,6 +23,7 @@ interface ChatItemProps {
     avatar: string
     trustLevel: "bronze" | "silver" | "gold"
     isOnline: boolean
+    lastOnline?: number
   }
   lastMessage: {
     content: string
@@ -77,6 +78,35 @@ export default function ChatItem({
     } else {
       return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
     }
+  }
+
+  const formatLastOnline = (isOnline: boolean, lastOnline?: number) => {
+    if (isOnline) {
+      return "В сети"
+    }
+    
+    if (!lastOnline) {
+      return "Был давно"
+    }
+    
+    const now = Date.now()
+    const timeDiff = now - lastOnline
+    const minutes = Math.floor(timeDiff / 60000)
+    const hours = Math.floor(timeDiff / 3600000)
+    const days = Math.floor(timeDiff / 86400000)
+    
+    if (minutes < 60) {
+      if (minutes < 5) {
+        return "Недавно"
+      }
+      return `${minutes}м назад`
+    }
+    
+    if (hours < 24) {
+      return `${hours}ч назад`
+    }
+    
+    return `${days}д назад`
   }
 
   const getMessagePreview = () => {
@@ -177,7 +207,7 @@ export default function ChatItem({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <div className="relative">
                     <Avatar className="h-6 w-6 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md">
@@ -188,7 +218,10 @@ export default function ChatItem({
                       <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border border-white rounded-full transition-all duration-300 group-hover:scale-125 group-hover:bg-green-300"></div>
                     )}
                   </div>
-                  <span className="text-xs font-medium text-gray-700 truncate">{otherParticipant.name}</span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-xs font-medium text-gray-700 truncate">{otherParticipant.name}</span>
+                    <span className="text-xs text-gray-500 truncate">{formatLastOnline(otherParticipant.isOnline, otherParticipant.lastOnline)}</span>
+                  </div>
                 </div>
               </div>
 

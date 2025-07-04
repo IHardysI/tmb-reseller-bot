@@ -22,6 +22,7 @@ export default defineSchema({
     trustLevel: v.optional(v.union(v.literal("bronze"), v.literal("silver"), v.literal("gold"))),
     verificationStatus: v.optional(v.union(v.literal("verified"), v.literal("pending"), v.literal("unverified"))),
     avatarStorageId: v.optional(v.id("_storage")),
+    lastOnline: v.optional(v.number()),
   }).index("by_telegram_id", ["telegramId"]),
   
   brands: defineTable({

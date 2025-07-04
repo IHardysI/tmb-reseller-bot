@@ -60,6 +60,12 @@ export const getUserChats = query({
           )
           .collect();
 
+        // Calculate online status
+        const now = Date.now();
+        const lastOnline = otherParticipant?.lastOnline || 0;
+        const timeDiff = now - lastOnline;
+        const isOnline = timeDiff <= 300000; // 5 minutes = online
+
         return {
           id: chat._id,
           itemId: post?._id,
@@ -71,7 +77,8 @@ export const getUserChats = query({
             name: `${otherParticipant?.firstName} ${otherParticipant?.lastName || ""}`.trim(),
             avatar: avatarUrl,
             trustLevel: otherParticipant?.trustLevel || "bronze",
-            isOnline: false,
+            isOnline: isOnline,
+            lastOnline: lastOnline,
           },
           lastMessage: lastMessage ? {
             content: lastMessage.content,
@@ -151,6 +158,12 @@ export const getChatById = query({
       .order("desc")
       .first();
 
+    // Calculate online status
+    const now = Date.now();
+    const lastOnline = otherParticipant?.lastOnline || 0;
+    const timeDiff = now - lastOnline;
+    const isOnline = timeDiff <= 300000; // 5 minutes = online
+
     return {
       id: chat._id,
       itemId: post?._id,
@@ -162,7 +175,8 @@ export const getChatById = query({
         name: `${otherParticipant?.firstName} ${otherParticipant?.lastName || ""}`.trim(),
         avatar: avatarUrl,
         trustLevel: otherParticipant?.trustLevel || "bronze",
-        isOnline: false,
+        isOnline: isOnline,
+        lastOnline: lastOnline,
       },
       userRole: chat.buyerId === args.userId ? "buyer" : "seller",
       messages: messagesWithUrls,

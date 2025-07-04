@@ -46,6 +46,7 @@ interface ChatData {
     avatar: string
     trustLevel: "bronze" | "silver" | "gold"
     isOnline: boolean
+    lastOnline?: number
   }
   userRole: "buyer" | "seller"
   messages: Message[]
@@ -122,6 +123,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   const markMessagesAsRead = useMutation(api.chats.markMessagesAsRead)
   const deleteMessage = useMutation(api.chats.deleteMessage)
   const editMessage = useMutation(api.chats.editMessage)
+  const updateLastOnline = useMutation(api.users.updateLastOnline)
 
   const handleBack = () => {
     router.push("/messages")
@@ -147,6 +149,39 @@ export default function ChatPage({ params }: ChatPageProps) {
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  const formatLastOnline = (isOnline: boolean, lastOnline?: number) => {
+    if (isOnline) {
+      return "В сети"
+    }
+    
+    if (!lastOnline) {
+      return "Был в сети давно"
+    }
+    
+    const now = Date.now()
+    const timeDiff = now - lastOnline
+    const minutes = Math.floor(timeDiff / 60000)
+    const hours = Math.floor(timeDiff / 3600000)
+    const days = Math.floor(timeDiff / 86400000)
+    
+    if (minutes < 60) {
+      if (minutes < 5) {
+        return "Был в сети недавно"
+      }
+      return `Был в сети ${minutes} мин. назад`
+    }
+    
+    if (hours < 24) {
+      return `Был в сети ${hours} ч. назад`
+    }
+    
+    if (days === 1) {
+      return "Был в сети вчера"
+    }
+    
+    return `Был в сети ${days} дн. назад`
   }
 
   const handleSendMessage = async () => {
@@ -405,11 +440,29 @@ export default function ChatPage({ params }: ChatPageProps) {
         }).catch(error => {
           console.error("Error marking messages as read:", error)
         })
+        
+        // Update user's last online status
+        updateLastOnline({
+          userId: currentUser._id
+        }).catch(error => {
+          console.error("Error updating last online:", error)
+        })
       }, 5000) // Check every 5 seconds
 
       return () => clearInterval(interval)
     }
   }, [chatData?.id, currentUser?._id])
+
+  // Update last online status when chat is opened
+  useEffect(() => {
+    if (currentUser) {
+      updateLastOnline({
+        userId: currentUser._id
+      }).catch(error => {
+        console.error("Error updating last online:", error)
+      })
+    }
+  }, [currentUser?._id])
 
   if (!telegramUser) {
     return (
@@ -473,7 +526,7 @@ export default function ChatPage({ params }: ChatPageProps) {
               {getTrustIcon(chatData.otherParticipant.trustLevel)}
             </div>
             <p className="text-xs text-gray-500">
-              {chatData.otherParticipant.isOnline ? "В сети" : "Был в сети недавно"}
+              {formatLastOnline(chatData.otherParticipant.isOnline, chatData.otherParticipant.lastOnline)}
             </p>
           </div>
         </div>
@@ -650,7 +703,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                   )}
                 </ContextMenu>
 
-                <p className={`text-xs text-gray-500 mt-1 ${isCurrentUser ? "text-right" : "text-left"} px-2 flex items-center gap-1 ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                <div className={`text-xs text-gray-500 mt-1 ${isCurrentUser ? "text-right" : "text-left"} px-2 flex items-center gap-1 ${isCurrentUser ? "justify-end" : "justify-start"}`}>
                   {formatTime(message.timestamp)}
                   {isCurrentUser && (
                     <div className="flex items-center ml-1">
@@ -673,7 +726,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                       )}
                     </div>
                   )}
-                </p>
+                </div>
               </div>
 
               {!isCurrentUser && (

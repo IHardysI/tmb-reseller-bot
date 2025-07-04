@@ -149,4 +149,20 @@ export const updateUserAvatar = mutation({
     console.log("User avatar updated for telegramId:", args.telegramId);
     return result;
   },
+});
+
+export const updateLastOnline = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(args.userId, {
+      lastOnline: Date.now(),
+    });
+  },
 }); 

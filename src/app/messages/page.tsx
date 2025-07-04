@@ -25,6 +25,7 @@ interface ChatItemData {
     avatar: string
     trustLevel: "bronze" | "silver" | "gold"
     isOnline: boolean
+    lastOnline?: number
   }
   lastMessage: {
     content: string
