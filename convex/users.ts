@@ -165,4 +165,28 @@ export const updateLastOnline = mutation({
       lastOnline: Date.now(),
     });
   },
+});
+
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return null;
+    }
+
+    let avatar = undefined;
+    if (user.avatarStorageId) {
+      try {
+        avatar = await ctx.storage.getUrl(user.avatarStorageId);
+      } catch (error) {
+        console.log("Error generating avatar URL from storageId:", error);
+      }
+    }
+
+    return {
+      ...user,
+      avatar: avatar,
+    };
+  },
 }); 

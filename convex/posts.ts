@@ -92,6 +92,33 @@ export const getUserPosts = query({
   },
 });
 
+export const getUserPostsByUserId = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return [];
+    }
+
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const postsWithSellers = await Promise.all(
+      posts.map(async (post) => {
+        return {
+          ...post,
+          sellerName: user ? user.firstName + (user.lastName ? ` ${user.lastName}` : '') : undefined,
+          sellerCity: user?.city,
+        };
+      })
+    );
+
+    return postsWithSellers.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
 export const getUserSoldPosts = query({
   args: { telegramId: v.number() },
   handler: async (ctx, args) => {

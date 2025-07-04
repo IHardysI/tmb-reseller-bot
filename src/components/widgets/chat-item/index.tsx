@@ -39,6 +39,7 @@ interface ChatItemProps {
   onDelete: () => void
   onBlock: () => void
   onReport: () => void
+  onUserProfileClick: (event: React.MouseEvent) => void
 }
 
 export default function ChatItem({ 
@@ -54,7 +55,8 @@ export default function ChatItem({
   onClick,
   onDelete,
   onBlock,
-  onReport
+  onReport,
+  onUserProfileClick
 }: ChatItemProps) {
   const getTrustColor = (trust: string) => {
     const colors = {
@@ -209,19 +211,24 @@ export default function ChatItem({
 
                               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
-                  <div className="relative">
-                    <Avatar className="h-6 w-6 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md">
-                      <AvatarImage src={otherParticipant.avatar || "/placeholder.svg"} />
-                      <AvatarFallback className="text-xs">{otherParticipant.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    {otherParticipant.isOnline && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border border-white rounded-full transition-all duration-300 group-hover:scale-125 group-hover:bg-green-300"></div>
-                    )}
-                  </div>
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-xs font-medium text-gray-700 truncate">{otherParticipant.name}</span>
-                    <span className="text-xs text-gray-500 truncate">{formatLastOnline(otherParticipant.isOnline, otherParticipant.lastOnline)}</span>
-                  </div>
+                  <button
+                    onClick={onUserProfileClick}
+                    className="flex items-center space-x-2 hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors"
+                  >
+                    <div className="relative">
+                      <Avatar className="h-6 w-6 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md">
+                        <AvatarImage src={otherParticipant.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className="text-xs">{otherParticipant.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {otherParticipant.isOnline && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border border-white rounded-full transition-all duration-300 group-hover:scale-125 group-hover:bg-green-300"></div>
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-xs font-medium text-gray-700 truncate">{otherParticipant.name}</span>
+                      <span className="text-xs text-gray-500 truncate">{formatLastOnline(otherParticipant.isOnline, otherParticipant.lastOnline)}</span>
+                    </div>
+                  </button>
                 </div>
               </div>
 

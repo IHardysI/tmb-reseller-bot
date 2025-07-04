@@ -79,6 +79,11 @@ export default function MessagesPage() {
     window.location.href = `/messages/${chatId}`
   }
 
+  const handleUserProfileClick = (userId: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    window.location.href = `/profile/${userId}`
+  }
+
   const handleDeleteChat = async (chatId: string) => {
     if (!currentUser) return
     
@@ -248,22 +253,23 @@ export default function MessagesPage() {
           ) : (
             <div className="space-y-4">
               {filteredChats.map((chat) => (
-                <ChatItem
-                  key={chat.id}
-                  id={chat.id}
-                  itemId={chat.itemId}
-                  itemName={chat.itemName}
-                  itemImage={chat.itemImage}
-                  itemPrice={chat.itemPrice}
-                  otherParticipant={chat.otherParticipant}
-                  lastMessage={chat.lastMessage}
-                  unreadCount={chat.unreadCount}
-                  userRole={chat.userRole}
-                  onClick={() => handleChatClick(chat.id)}
-                  onDelete={() => setDeleteDialog({ open: true, chatId: chat.id })}
-                  onBlock={() => handleBlockUser(chat.id)}
-                  onReport={() => handleReportUser(chat.id)}
-                />
+                                  <ChatItem
+                    key={chat.id}
+                    id={chat.id}
+                    itemId={chat.itemId}
+                    itemName={chat.itemName}
+                    itemImage={chat.itemImage}
+                    itemPrice={chat.itemPrice}
+                    otherParticipant={chat.otherParticipant}
+                    lastMessage={chat.lastMessage}
+                    unreadCount={chat.unreadCount}
+                    userRole={chat.userRole}
+                    onClick={() => handleChatClick(chat.id)}
+                    onDelete={() => setDeleteDialog({ open: true, chatId: chat.id })}
+                    onBlock={() => handleBlockUser(chat.id)}
+                    onReport={() => handleReportUser(chat.id)}
+                    onUserProfileClick={(event) => handleUserProfileClick(chat.otherParticipant.id, event)}
+                  />
               ))}
             </div>
           )}

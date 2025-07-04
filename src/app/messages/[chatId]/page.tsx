@@ -320,6 +320,12 @@ export default function ChatPage({ params }: ChatPageProps) {
     }
   }
 
+  const handleUserProfileClick = () => {
+    if (chatData?.otherParticipant?.id && chatData?.id) {
+      router.push(`/profile/${chatData.otherParticipant.id}?backToChatId=${chatData.id}`)
+    }
+  }
+
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setAttachedFiles(files)
@@ -515,20 +521,25 @@ export default function ChatPage({ params }: ChatPageProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={chatData.otherParticipant.avatar} />
-            <AvatarFallback>{chatData.otherParticipant.name[0]}</AvatarFallback>
-          </Avatar>
-          
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="font-semibold text-sm">{chatData.otherParticipant.name}</h1>
-              {getTrustIcon(chatData.otherParticipant.trustLevel)}
+          <button
+            onClick={handleUserProfileClick}
+            className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+          >
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={chatData.otherParticipant.avatar} />
+              <AvatarFallback>{chatData.otherParticipant.name[0]}</AvatarFallback>
+            </Avatar>
+            
+            <div>
+              <div className="flex items-center space-x-2">
+                <h1 className="font-semibold text-sm">{chatData.otherParticipant.name}</h1>
+                {getTrustIcon(chatData.otherParticipant.trustLevel)}
+              </div>
+              <p className="text-xs text-gray-500">
+                {formatLastOnline(chatData.otherParticipant.isOnline, chatData.otherParticipant.lastOnline)}
+              </p>
             </div>
-            <p className="text-xs text-gray-500">
-              {formatLastOnline(chatData.otherParticipant.isOnline, chatData.otherParticipant.lastOnline)}
-            </p>
-          </div>
+          </button>
         </div>
 
         <DropdownMenu>
@@ -731,10 +742,15 @@ export default function ChatPage({ params }: ChatPageProps) {
 
               {!isCurrentUser && (
                 <div className="order-2 ml-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={chatData.otherParticipant.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="text-xs">{chatData.otherParticipant.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <button
+                    onClick={handleUserProfileClick}
+                    className="hover:opacity-80 transition-opacity"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={chatData.otherParticipant.avatar || "/placeholder.svg"} />
+                      <AvatarFallback className="text-xs">{chatData.otherParticipant.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </button>
                 </div>
               )}
             </div>
@@ -764,7 +780,7 @@ export default function ChatPage({ params }: ChatPageProps) {
       </div>
 
       {showScrollToBottom && (
-        <div className="fixed bottom-28 right-8 z-50">
+        <div className="fixed bottom-28 left-1/2 transform -translate-x-1/2 z-50">
           <Button
             onClick={scrollToBottom}
             size="icon"
