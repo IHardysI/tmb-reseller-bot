@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ImageIcon, FileText, Clock, Trash2, Ban, Flag } from "lucide-react"
+import { ImageIcon, FileText, Clock, Trash2, Ban, Flag, Check } from "lucide-react"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -30,6 +30,7 @@ interface ChatItemProps {
     senderId: string
     type: "text" | "image" | "file"
     fileName?: string
+    isRead?: boolean
   } | null
   unreadCount: number
   userRole: "buyer" | "seller"
@@ -193,12 +194,15 @@ export default function ChatItem({
 
               <div className="mt-2">
                 <div
-                  className={`text-sm line-clamp-1 ${
+                  className={`text-sm line-clamp-1 flex items-center gap-1 ${
                     unreadCount > 0 && !isFromCurrentUser ? "font-medium text-gray-900" : "text-gray-500"
                   }`}
                 >
                   {isFromCurrentUser && <span className="text-gray-400">Вы: </span>}
                   {getMessagePreview()}
+                  {isFromCurrentUser && lastMessage?.isRead && (
+                    <Check className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                  )}
                 </div>
               </div>
             </div>

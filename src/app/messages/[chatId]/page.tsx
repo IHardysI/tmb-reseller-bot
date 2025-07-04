@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, Send, ImageIcon, FileText, X, Download, Eye, Award, MoreVertical, Camera, File } from "lucide-react"
+import { ArrowLeft, Send, ImageIcon, FileText, X, Download, Eye, Award, MoreVertical, Camera, File, ChevronDown, Check, Edit, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ComplaintDialog } from "@/components/ui/complaint-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
@@ -29,6 +30,8 @@ interface Message {
   fileName?: string
   fileSize?: number
   fileUrl?: string
+  isRead?: boolean
+  readAt?: string
 }
 
 interface ChatData {
@@ -46,6 +49,7 @@ interface ChatData {
   }
   userRole: "buyer" | "seller"
   messages: Message[]
+  lastReadMessageId?: string
 }
 
 interface ChatPageProps {
@@ -78,10 +82,26 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [newMessagesCount, setNewMessagesCount] = useState(0)
+  const [editingMessage, setEditingMessage] = useState<{
+    id: string
+    content: string
+  } | null>(null)
+  const [deleteMessageDialog, setDeleteMessageDialog] = useState<{
+    open: boolean
+    messageId: string | null
+  }>({
+    open: false,
+    messageId: null
+  })
   
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const prevMessagesLength = useRef<number>(0)
+  const isAtBottom = useRef<boolean>(true)
 
   const currentUser = useQuery(api.users.getUserByTelegramId, 
     telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
@@ -99,6 +119,9 @@ export default function ChatPage({ params }: ChatPageProps) {
   const blockUser = useMutation(api.userBlocks.blockUser)
   const createComplaint = useMutation(api.complaints.createComplaint)
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl)
+  const markMessagesAsRead = useMutation(api.chats.markMessagesAsRead)
+  const deleteMessage = useMutation(api.chats.deleteMessage)
+  const editMessage = useMutation(api.chats.editMessage)
 
   const handleBack = () => {
     router.push("/messages")
@@ -219,6 +242,49 @@ export default function ChatPage({ params }: ChatPageProps) {
     }
   }
 
+  const handleDeleteMessage = async () => {
+    if (!deleteMessageDialog.messageId || !currentUser) return
+
+    try {
+      await deleteMessage({
+        messageId: deleteMessageDialog.messageId as any,
+        userId: currentUser._id
+      })
+      setDeleteMessageDialog({ open: false, messageId: null })
+    } catch (error) {
+      console.error("Error deleting message:", error)
+    }
+  }
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    if (!currentUser) return
+
+    try {
+      await editMessage({
+        messageId: messageId as any,
+        userId: currentUser._id,
+        content: newContent
+      })
+      setEditingMessage(null)
+    } catch (error) {
+      console.error("Error editing message:", error)
+    }
+  }
+
+  const handleStartEditMessage = (messageId: string, content: string) => {
+    setEditingMessage({ id: messageId, content })
+  }
+
+  const handleCancelEditMessage = () => {
+    setEditingMessage(null)
+  }
+
+  const handleSaveEditMessage = () => {
+    if (editingMessage) {
+      handleEditMessage(editingMessage.id, editingMessage.content)
+    }
+  }
+
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setAttachedFiles(files)
@@ -263,16 +329,92 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    setNewMessagesCount(0)
+  }
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const threshold = 100
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+    isAtBottom.current = atBottom
+    setShowScrollToBottom(!atBottom)
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [chatData?.messages])
+    const container = messagesContainerRef.current
+    if (!container) return
+    container.addEventListener("scroll", handleMessagesScroll)
+    return () => container.removeEventListener("scroll", handleMessagesScroll)
+  }, [chatData])
+
+  useEffect(() => {
+    if (!chatData?.messages || !currentUser) return
+    const lastMsg = chatData.messages[chatData.messages.length - 1]
+    const prevLen = prevMessagesLength.current
+    prevMessagesLength.current = chatData.messages.length
+    
+    // Always scroll on initial load
+    if (chatData.messages.length === 1) {
+      scrollToBottom()
+      return
+    }
+    
+    // Check for new messages
+    if (prevLen && chatData.messages.length > prevLen) {
+      const newMessages = chatData.messages.length - prevLen
+      
+      // If user is not at bottom and new messages are from other user, increment counter
+      if (!isAtBottom.current && lastMsg.senderId !== currentUser._id) {
+        setNewMessagesCount(prev => prev + newMessages)
+      }
+      
+      // Only auto-scroll if the last message is from current user
+      if (lastMsg.senderId === currentUser._id) {
+        scrollToBottom()
+      }
+    }
+  }, [chatData?.messages, currentUser])
+
+  // Initial scroll to bottom when chat loads
+  useEffect(() => {
+    if (chatData?.messages && chatData.messages.length > 0) {
+      scrollToBottom()
+    }
+  }, [chatData?.id])
+
+  // Mark messages as read when chat is opened
+  useEffect(() => {
+    if (chatData && currentUser) {
+      markMessagesAsRead({
+        chatId: chatData.id as any,
+        userId: currentUser._id
+      }).catch(error => {
+        console.error("Error marking messages as read:", error)
+      })
+    }
+  }, [chatData?.id, currentUser?._id])
+
+  // Mark messages as read when user is actively viewing the chat
+  useEffect(() => {
+    if (chatData && currentUser) {
+      const interval = setInterval(() => {
+        markMessagesAsRead({
+          chatId: chatData.id as any,
+          userId: currentUser._id
+        }).catch(error => {
+          console.error("Error marking messages as read:", error)
+        })
+      }, 5000) // Check every 5 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [chatData?.id, currentUser?._id])
 
   if (!telegramUser) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="Загрузка..." />
+        <PageLoader text="" />
       </div>
     )
   }
@@ -280,7 +422,15 @@ export default function ChatPage({ params }: ChatPageProps) {
   if (!currentUser) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="Загрузка пользователя..." />
+        <PageLoader text="" />
+      </div>
+    )
+  }
+
+  if (!chatData) {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <PageLoader text="" />
       </div>
     )
   }
@@ -294,16 +444,6 @@ export default function ChatPage({ params }: ChatPageProps) {
           <Button onClick={() => router.push("/messages")} className="mt-4">
             Назад к сообщениям
           </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!chatData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500">Загрузка чата...</p>
         </div>
       </div>
     )
@@ -386,77 +526,153 @@ export default function ChatPage({ params }: ChatPageProps) {
         </CardContent>
       </Card>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {chatData.messages.map((message) => {
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative"
+      >
+        {chatData.messages.map((message, index) => {
           const isCurrentUser = message.senderId === "current-user"
+          const isEditing = editingMessage?.id === message.id
           return (
             <div key={message.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-xs lg:max-w-md xl:max-w-lg ${isCurrentUser ? "order-2" : "order-1"}`}>
-                <div
-                  className={`px-4 py-3 rounded-2xl ${
-                    isCurrentUser
-                      ? "bg-blue-600 text-white rounded-br-md"
-                      : "bg-white text-gray-900 rounded-bl-md shadow-sm border"
-                  }`}
-                >
-                  {message.type === "text" && <p className="text-sm leading-relaxed">{message.content}</p>}
-
-                  {message.type === "image" && (
-                    <div className="space-y-2">
-                      <img
-                        src={message.fileUrl || "/placeholder.svg"}
-                        alt={message.fileName}
-                        className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                      />
-                      {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {message.type === "file" && (
-                    <div className="space-y-2">
-                      <div
-                        className={`flex items-center space-x-3 p-3 rounded-lg ${
-                          isCurrentUser ? "bg-blue-500" : "bg-gray-50"
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg ${isCurrentUser ? "bg-blue-400" : "bg-gray-200"} flex-shrink-0`}
-                        >
-                          <FileText className={`h-4 w-4 ${isCurrentUser ? "text-white" : "text-gray-600"}`} />
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      className={`px-4 py-3 rounded-2xl ${
+                        isCurrentUser
+                          ? "bg-blue-600 text-white rounded-br-md"
+                          : "bg-white text-gray-900 rounded-bl-md shadow-sm border"
+                      }`}
+                    >
+                      {message.type === "text" && !isEditing && <p className="text-sm leading-relaxed">{message.content}</p>}
+                      {message.type === "text" && isEditing && (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingMessage.content}
+                            onChange={(e) => setEditingMessage({ ...editingMessage, content: e.target.value })}
+                            className="text-sm bg-transparent border-white/20 text-white placeholder-white/70 resize-none"
+                            rows={2}
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleCancelEditMessage}
+                              className="text-white hover:bg-white/10 h-7 px-2 text-xs"
+                            >
+                              Отмена
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveEditMessage}
+                              className="bg-white text-blue-600 hover:bg-white/90 h-7 px-2 text-xs"
+                            >
+                              Сохранить
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm font-medium truncate ${isCurrentUser ? "text-white" : "text-gray-900"}`}
-                          >
-                            {message.fileName}
-                          </p>
-                          {message.fileSize && (
-                            <p className={`text-xs ${isCurrentUser ? "text-blue-100" : "text-gray-500"}`}>
-                              {formatFileSize(message.fileSize)}
-                            </p>
+                      )}
+
+                      {message.type === "image" && (
+                        <div className="space-y-2">
+                          <img
+                            src={message.fileUrl || "/placeholder.svg"}
+                            alt={message.fileName}
+                            className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                          />
+                          {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
+                            <p className="text-sm leading-relaxed">{message.content}</p>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-8 w-8 ${
-                            isCurrentUser ? "hover:bg-blue-400 text-white" : "hover:bg-gray-200 text-gray-600"
-                          }`}
+                      )}
+
+                      {message.type === "file" && (
+                        <div className="space-y-2">
+                          <div
+                            className={`flex items-center space-x-3 p-3 rounded-lg ${
+                              isCurrentUser ? "bg-blue-500" : "bg-gray-50"
+                            }`}
+                          >
+                            <div
+                              className={`p-2 rounded-lg ${isCurrentUser ? "bg-blue-400" : "bg-gray-200"} flex-shrink-0`}
+                            >
+                              <FileText className={`h-4 w-4 ${isCurrentUser ? "text-white" : "text-gray-600"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm font-medium truncate ${isCurrentUser ? "text-white" : "text-gray-900"}`}
+                              >
+                                {message.fileName}
+                              </p>
+                              {message.fileSize && (
+                                <p className={`text-xs ${isCurrentUser ? "text-blue-100" : "text-gray-500"}`}>
+                                  {formatFileSize(message.fileSize)}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-8 w-8 ${
+                                isCurrentUser ? "hover:bg-blue-400 text-white" : "hover:bg-gray-200 text-gray-600"
+                              }`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
+                            <p className="text-sm leading-relaxed">{message.content}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </ContextMenuTrigger>
+                  {isCurrentUser && (
+                    <ContextMenuContent>
+                      {message.type === "text" && (
+                        <ContextMenuItem
+                          onClick={() => handleStartEditMessage(message.id, message.content)}
+                          className="flex items-center space-x-2"
                         >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
-                        <p className="text-sm leading-relaxed">{message.content}</p>
+                          <Edit className="h-4 w-4" />
+                          <span>Редактировать</span>
+                        </ContextMenuItem>
+                      )}
+                      <ContextMenuItem
+                        onClick={() => setDeleteMessageDialog({ open: true, messageId: message.id })}
+                        className="flex items-center space-x-2 text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Удалить</span>
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  )}
+                </ContextMenu>
+
+                <p className={`text-xs text-gray-500 mt-1 ${isCurrentUser ? "text-right" : "text-left"} px-2 flex items-center gap-1 ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                  {formatTime(message.timestamp)}
+                  {isCurrentUser && (
+                    <div className="flex items-center ml-1">
+                      {message.isRead ? (
+                        // Double tick - message read
+                        <svg width="16" height="12" viewBox="0 0 16 12" className="text-blue-500">
+                          <path
+                            fill="currentColor"
+                            d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.063-.51zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L3.724 9.587a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.063-.51z"
+                          />
+                        </svg>
+                      ) : (
+                        // Single tick - message sent
+                        <svg width="12" height="12" viewBox="0 0 12 12" className="text-gray-400">
+                          <path
+                            fill="currentColor"
+                            d="M11.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L3.724 9.587a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.063-.51z"
+                          />
+                        </svg>
                       )}
                     </div>
                   )}
-                </div>
-
-                <p className={`text-xs text-gray-500 mt-1 ${isCurrentUser ? "text-right" : "text-left"} px-2`}>
-                  {formatTime(message.timestamp)}
                 </p>
               </div>
 
@@ -493,6 +709,24 @@ export default function ChatPage({ params }: ChatPageProps) {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {showScrollToBottom && (
+        <div className="fixed bottom-28 right-8 z-50">
+          <Button
+            onClick={scrollToBottom}
+            size="icon"
+            className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            style={{ boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)" }}
+          >
+            <ChevronDown className="w-6 h-6" />
+            {newMessagesCount > 0 && (
+              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold min-w-[1.5rem]">
+                {newMessagesCount > 99 ? '99+' : newMessagesCount}
+              </div>
+            )}
+          </Button>
+        </div>
+      )}
 
       <div className="bg-white border-t flex-shrink-0">
         {attachedFiles.length > 0 && (
@@ -716,6 +950,26 @@ export default function ChatPage({ params }: ChatPageProps) {
           hideMessageSellerButton
         />
       )}
+
+      <AlertDialog open={deleteMessageDialog.open} onOpenChange={(open) => setDeleteMessageDialog({ open, messageId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить сообщение?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Сообщение будет удалено навсегда.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMessage}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 

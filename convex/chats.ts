@@ -33,6 +33,17 @@ export const getUserChats = query({
         const otherParticipantId = chat.buyerId === args.userId ? chat.sellerId : chat.buyerId;
         const otherParticipant = await ctx.db.get(otherParticipantId);
         
+        // Get avatar URL from storage
+        let avatarUrl = "/placeholder.svg";
+        if (otherParticipant?.avatarStorageId) {
+          try {
+            const url = await ctx.storage.getUrl(otherParticipant.avatarStorageId);
+            if (url) avatarUrl = url;
+          } catch (error) {
+            console.log("Error generating avatar URL:", error);
+          }
+        }
+        
         let lastMessage = null;
         if (chat.lastMessageId) {
           lastMessage = await ctx.db.get(chat.lastMessageId);
@@ -58,16 +69,17 @@ export const getUserChats = query({
           otherParticipant: {
             id: otherParticipant?._id,
             name: `${otherParticipant?.firstName} ${otherParticipant?.lastName || ""}`.trim(),
-            avatar: "/placeholder.svg",
+            avatar: avatarUrl,
             trustLevel: otherParticipant?.trustLevel || "bronze",
             isOnline: false,
           },
           lastMessage: lastMessage ? {
             content: lastMessage.content,
             timestamp: new Date(lastMessage.createdAt).toISOString(),
-            senderId: lastMessage.senderId,
+            senderId: lastMessage.senderId === args.userId ? "current-user" : lastMessage.senderId,
             type: lastMessage.type,
             fileName: lastMessage.fileName,
+            isRead: lastMessage.isRead,
           } : null,
           unreadCount: unreadCount.length,
           userRole: chat.buyerId === args.userId ? "buyer" : "seller",
@@ -94,6 +106,17 @@ export const getChatById = query({
     const otherParticipantId = chat.buyerId === args.userId ? chat.sellerId : chat.buyerId;
     const otherParticipant = await ctx.db.get(otherParticipantId);
 
+    // Get avatar URL from storage
+    let avatarUrl = "/placeholder.svg";
+    if (otherParticipant?.avatarStorageId) {
+      try {
+        const url = await ctx.storage.getUrl(otherParticipant.avatarStorageId);
+        if (url) avatarUrl = url;
+      } catch (error) {
+        console.log("Error generating avatar URL:", error);
+      }
+    }
+
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_chat_created", (q) => q.eq("chatId", args.chatId))
@@ -110,8 +133,23 @@ export const getChatById = query({
         fileName: msg.fileName,
         fileSize: msg.fileSize,
         fileUrl: msg.fileStorageId ? await ctx.storage.getUrl(msg.fileStorageId) : undefined,
+        isRead: msg.isRead,
+        readAt: msg.readAt ? new Date(msg.readAt).toISOString() : undefined,
       }))
     );
+
+    // Get the last read message by the other participant
+    const lastReadMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("senderId"), args.userId),
+          q.eq(q.field("isRead"), true)
+        )
+      )
+      .order("desc")
+      .first();
 
     return {
       id: chat._id,
@@ -122,12 +160,13 @@ export const getChatById = query({
       otherParticipant: {
         id: otherParticipant?._id,
         name: `${otherParticipant?.firstName} ${otherParticipant?.lastName || ""}`.trim(),
-        avatar: "/placeholder.svg",
+        avatar: avatarUrl,
         trustLevel: otherParticipant?.trustLevel || "bronze",
         isOnline: false,
       },
       userRole: chat.buyerId === args.userId ? "buyer" : "seller",
       messages: messagesWithUrls,
+      lastReadMessageId: lastReadMessage?._id,
     };
   },
 });
@@ -190,6 +229,7 @@ export const markMessagesAsRead = mutation({
     userId: v.id("users")
   },
   handler: async (ctx, args) => {
+    // Mark all unread messages sent by OTHER users as read
     const unreadMessages = await ctx.db
       .query("messages")
       .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
@@ -210,7 +250,10 @@ export const markMessagesAsRead = mutation({
       )
     );
 
-    return { success: true };
+    return { 
+      success: true, 
+      markedCount: unreadMessages.length 
+    };
   },
 });
 
@@ -248,5 +291,91 @@ export const sendMessage = mutation({
     });
 
     return messageId;
+  },
+});
+
+export const deleteMessage = mutation({
+  args: {
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    if (message.senderId !== args.userId) {
+      throw new Error("You can only delete your own messages");
+    }
+
+    await ctx.db.delete(args.messageId);
+
+    const chat = await ctx.db.get(message.chatId);
+    if (chat && chat.lastMessageId === args.messageId) {
+      const lastMessage = await ctx.db
+        .query("messages")
+        .withIndex("by_chat_created", (q) => q.eq("chatId", message.chatId))
+        .order("desc")
+        .first();
+
+      await ctx.db.patch(message.chatId, {
+        lastMessageId: lastMessage?._id,
+        lastMessageAt: lastMessage?.createdAt || Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+export const editMessage = mutation({
+  args: {
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    if (message.senderId !== args.userId) {
+      throw new Error("You can only edit your own messages");
+    }
+
+    if (message.type !== "text") {
+      throw new Error("You can only edit text messages");
+    }
+
+    await ctx.db.patch(args.messageId, {
+      content: args.content,
+    });
+
+    return { success: true };
+  },
+});
+
+export const getMessageReadStatus = query({
+  args: {
+    chatId: v.id("chats"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat_created", (q) => q.eq("chatId", args.chatId))
+      .filter((q) => q.eq(q.field("senderId"), args.userId))
+      .order("desc")
+      .collect();
+
+    const readStatus = new Map();
+    
+    for (const message of messages) {
+      readStatus.set(message._id, message.isRead);
+    }
+
+    return readStatus;
   },
 }); 

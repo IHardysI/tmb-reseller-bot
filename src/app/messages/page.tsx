@@ -32,6 +32,7 @@ interface ChatItemData {
     senderId: string
     type: "text" | "image" | "file"
     fileName?: string
+    isRead?: boolean
   } | null
   unreadCount: number
   userRole: "buyer" | "seller"
@@ -149,7 +150,7 @@ export default function MessagesPage() {
   if (!telegramUser) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="Загрузка..." />
+        <PageLoader text="" />
       </div>
     )
   }
@@ -157,7 +158,15 @@ export default function MessagesPage() {
   if (!currentUser) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="Загрузка пользователя..." />
+        <PageLoader text="" />
+      </div>
+    )
+  }
+
+  if (!chats) {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <PageLoader text="" />
       </div>
     )
   }
