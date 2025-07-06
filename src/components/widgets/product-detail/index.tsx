@@ -52,7 +52,6 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
     telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
   )
   
-  const createChat = useMutation(api.chats.createChat)
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
   const incrementViews = useMutation(api.posts.incrementViews)
@@ -100,16 +99,7 @@ export default function ProductDetail({ postId, isOpen, onClose, onEdit, onDelet
   const handleMessageSeller = async () => {
     if (!post || !currentUser) return
     
-    try {
-      const chatId = await createChat({
-        postId: post._id,
-        buyerId: currentUser._id,
-      })
-      
-      router.push(`/messages/${chatId}`)
-    } catch (error) {
-      console.error("Error creating chat:", error)
-    }
+    router.push(`/messages/new?postId=${post._id}`)
   }
 
   const handleToggleLike = async () => {

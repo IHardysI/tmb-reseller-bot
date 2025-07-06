@@ -25,7 +25,7 @@ export default function CartPage() {
     telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
   )
   
-  const createChat = useMutation(api.chats.createChat)
+
 
   const handleMessage = async (itemId: string) => {
     if (!currentUser) return
@@ -33,43 +33,22 @@ export default function CartPage() {
     const item = cartItems.find(item => item.id === itemId)
     if (!item) return
     
-    try {
-      const chatId = await createChat({
-        postId: item.postId as any,
-        buyerId: currentUser._id,
-      })
-      
-      router.push(`/messages/${chatId}`)
-    } catch (error) {
-      console.error("Error creating chat:", error)
-    }
+    router.push(`/messages/new?postId=${item.postId}`)
   }
 
   const handleMessageAllSellers = async () => {
     if (!currentUser) return
     
-    const uniqueSellers = Array.from(new Set(cartItems.map(item => item.sellerId)))
+    const uniqueItems = cartItems.reduce((acc, item) => {
+      const exists = acc.find(i => i.sellerId === item.sellerId)
+      if (!exists) acc.push(item)
+      return acc
+    }, [] as typeof cartItems)
     
-    try {
-      const chatPromises = uniqueSellers.map(async (sellerId) => {
-        const item = cartItems.find(item => item.sellerId === sellerId)
-        if (!item) return null
-        
-        return await createChat({
-          postId: item.postId as any,
-          buyerId: currentUser._id,
-        })
-      })
-      
-      const chatIds = await Promise.all(chatPromises)
-      
-      if (chatIds.length === 1) {
-        router.push(`/messages/${chatIds[0]}`)
-      } else {
-        router.push("/messages")
-      }
-    } catch (error) {
-      console.error("Error creating chats:", error)
+    if (uniqueItems.length === 1) {
+      router.push(`/messages/new?postId=${uniqueItems[0].postId}`)
+    } else {
+      router.push("/messages")
     }
   }
 

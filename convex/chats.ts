@@ -185,6 +185,25 @@ export const getChatById = query({
   },
 });
 
+export const getExistingChat = query({
+  args: {
+    postId: v.id("posts"),
+    buyerId: v.id("users"),
+    sellerId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const existingChat = await ctx.db
+      .query("chats")
+      .withIndex("by_participants", (q) => 
+        q.eq("buyerId", args.buyerId).eq("sellerId", args.sellerId)
+      )
+      .filter((q) => q.eq(q.field("postId"), args.postId))
+      .first();
+
+    return existingChat;
+  },
+});
+
 export const createChat = mutation({
   args: {
     postId: v.id("posts"),
@@ -305,6 +324,68 @@ export const sendMessage = mutation({
     });
 
     return messageId;
+  },
+});
+
+export const startChatWithMessage = mutation({
+  args: {
+    postId: v.id("posts"),
+    buyerId: v.id("users"),
+    content: v.string(),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("file")),
+    fileName: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    fileStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if chat already exists
+    const existingChat = await ctx.db
+      .query("chats")
+      .withIndex("by_participants", (q) => 
+        q.eq("buyerId", args.buyerId).eq("sellerId", post.userId)
+      )
+      .filter((q) => q.eq(q.field("postId"), args.postId))
+      .first();
+
+    let chatId;
+    if (existingChat) {
+      chatId = existingChat._id;
+    } else {
+      // Create new chat only when first message is sent
+      chatId = await ctx.db.insert("chats", {
+        postId: args.postId,
+        buyerId: args.buyerId,
+        sellerId: post.userId,
+        createdAt: Date.now(),
+        isActive: true,
+      });
+    }
+
+    // Send the first message
+    const messageId = await ctx.db.insert("messages", {
+      chatId: chatId,
+      senderId: args.buyerId,
+      content: args.content,
+      type: args.type,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      fileStorageId: args.fileStorageId,
+      createdAt: Date.now(),
+      isRead: false,
+    });
+
+    // Update chat with first message
+    await ctx.db.patch(chatId, {
+      lastMessageId: messageId,
+      lastMessageAt: Date.now(),
+    });
+
+    return chatId;
   },
 });
 
