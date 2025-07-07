@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { PageLoader } from '@/components/ui/loader'
 import ProductDetail from '@/components/widgets/product-detail'
+import { ImagePreview } from '@/components/ui/image-preview'
 import { Id } from "@/../convex/_generated/dataModel"
 
 interface Message {
@@ -95,6 +96,15 @@ export default function ChatPage({ params }: ChatPageProps) {
   }>({
     open: false,
     messageId: null
+  })
+  const [imagePreview, setImagePreview] = useState<{
+    isOpen: boolean
+    images: string[]
+    currentIndex: number
+  }>({
+    isOpen: false,
+    images: [],
+    currentIndex: 0
   })
   
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -324,6 +334,28 @@ export default function ChatPage({ params }: ChatPageProps) {
     if (chatData?.otherParticipant?.id && chatData?.id) {
       router.push(`/profile/${chatData.otherParticipant.id}?backToChatId=${chatData.id}`)
     }
+  }
+
+  const handleImageClick = (imageUrl: string) => {
+    if (!chatData) return
+    
+    const imageMessages = chatData.messages.filter(msg => msg.type === "image" && msg.fileUrl)
+    const images = imageMessages.map(msg => msg.fileUrl!).filter(Boolean)
+    const currentIndex = images.indexOf(imageUrl)
+    
+    setImagePreview({
+      isOpen: true,
+      images,
+      currentIndex: currentIndex >= 0 ? currentIndex : 0
+    })
+  }
+
+  const handleCloseImagePreview = () => {
+    setImagePreview({
+      isOpen: false,
+      images: [],
+      currentIndex: 0
+    })
   }
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -644,6 +676,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                             src={message.fileUrl || "/placeholder.svg"}
                             alt={message.fileName}
                             className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => handleImageClick(message.fileUrl || "")}
                           />
                           {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
                             <p className="text-sm leading-relaxed">{message.content}</p>
@@ -1039,6 +1072,13 @@ export default function ChatPage({ params }: ChatPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImagePreview
+        images={imagePreview.images}
+        isOpen={imagePreview.isOpen}
+        onClose={handleCloseImagePreview}
+        initialIndex={imagePreview.currentIndex}
+      />
     </div>
   )
 } 

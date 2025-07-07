@@ -27,7 +27,6 @@ import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { useRouter } from "next/navigation"
 import { AuthGuard } from '@/components/AuthGuard'
 import Link from "next/link"
-import Header from "@/components/widgets/header"
 import { PageLoader } from "@/components/ui/loader"
 import ProductCard from "@/components/widgets/product-card"
 import ProductDetail from "@/components/widgets/product-detail"
@@ -310,8 +309,6 @@ function ProfilePageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="Мой профиль" />
-
       {!currentUser || !userPosts || !likedPosts ? (
         <div className="max-w-6xl mx-auto p-2 md:p-4">
           <PageLoader text="Загрузка профиля..." />

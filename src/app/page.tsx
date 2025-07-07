@@ -29,7 +29,6 @@ import { AuthGuard } from '@/components/AuthGuard'
 import { FloatingActionButton } from "@/components/ui/floating-action-button"
 import { useFilters } from "@/contexts/FilterContext"
 import AddItemDialog from "@/components/widgets/create-post"
-import Header from "@/components/widgets/header"
 import { PageLoader } from "@/components/ui/loader"
 
 interface Product {
@@ -221,9 +220,6 @@ function MarketplaceContent() {
 
   return (
       <div className="flex-1 min-h-screen bg-gray-50">
-        <div className="hidden md:block">
-          <Header title="Маркетплейс" />
-        </div>
         <div className="bg-white border-b sticky top-0 z-40">
           <div className="p-4">
             {/* Desktop Layout */}

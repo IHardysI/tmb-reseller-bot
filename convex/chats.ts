@@ -1,5 +1,25 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+
+const checkMessageForSuspiciousContent = async (ctx: any, messageId: any, chatId: any, senderId: any, receiverId: any, content: string) => {
+  try {
+    // Use the moderation system to check and create cases
+    const caseId = await ctx.runMutation(api.moderation.createModerationCase, {
+      messageId,
+      chatId,
+      senderId,
+      receiverId,
+      messageContent: content,
+    });
+    
+    if (caseId) {
+      console.log("Moderation case created:", caseId);
+    }
+  } catch (error) {
+    console.error("Error in moderation check:", error);
+  }
+};
 
 export const getUserChats = query({
   args: { userId: v.id("users") },
@@ -9,19 +29,27 @@ export const getUserChats = query({
       throw new Error("User not found");
     }
 
-    const chats = await ctx.db
+    const allBuyerChats = await ctx.db
       .query("chats")
       .withIndex("by_buyer", (q) => q.eq("buyerId", args.userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .order("desc")
       .collect();
 
-    const sellerChats = await ctx.db
+    const allSellerChats = await ctx.db
       .query("chats")
       .withIndex("by_seller", (q) => q.eq("sellerId", args.userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .order("desc")
       .collect();
+
+    const chats = allBuyerChats.filter(chat => 
+      !chat.hiddenFor || !chat.hiddenFor.includes(args.userId)
+    );
+
+    const sellerChats = allSellerChats.filter(chat => 
+      !chat.hiddenFor || !chat.hiddenFor.includes(args.userId)
+    );
 
     const allChats = [...chats, ...sellerChats].sort((a, b) => 
       (b.lastMessageAt || b.createdAt) - (a.lastMessageAt || a.createdAt)
@@ -250,7 +278,12 @@ export const deleteChat = mutation({
       throw new Error("Chat not found");
     }
 
-    await ctx.db.patch(args.chatId, { isActive: false });
+    const currentHiddenFor = chat.hiddenFor || [];
+    const updatedHiddenFor = currentHiddenFor.includes(args.userId) 
+      ? currentHiddenFor 
+      : [...currentHiddenFor, args.userId];
+
+    await ctx.db.patch(args.chatId, { hiddenFor: updatedHiddenFor });
 
     return { success: true };
   },
@@ -321,7 +354,17 @@ export const sendMessage = mutation({
     await ctx.db.patch(args.chatId, {
       lastMessageId: messageId,
       lastMessageAt: Date.now(),
+      hiddenFor: [],
     });
+
+    // Check message for suspicious content
+    if (args.type === "text" && args.content.trim()) {
+      const chat = await ctx.db.get(args.chatId);
+      if (chat) {
+        const receiverId = chat.buyerId === args.senderId ? chat.sellerId : chat.buyerId;
+        await checkMessageForSuspiciousContent(ctx, messageId, args.chatId, args.senderId, receiverId, args.content);
+      }
+    }
 
     return messageId;
   },
@@ -383,7 +426,16 @@ export const startChatWithMessage = mutation({
     await ctx.db.patch(chatId, {
       lastMessageId: messageId,
       lastMessageAt: Date.now(),
+      hiddenFor: [],
     });
+
+    // Check message for suspicious content
+    if (args.type === "text" && args.content.trim()) {
+      const post = await ctx.db.get(args.postId);
+      if (post) {
+        await checkMessageForSuspiciousContent(ctx, messageId, chatId, args.buyerId, post.userId, args.content);
+      }
+    }
 
     return chatId;
   },

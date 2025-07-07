@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Home as HomeIcon,
   ShoppingCart,
+  Shield,
 } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
@@ -60,6 +61,12 @@ export default function Header({ title, subtitle }: HeaderProps) {
                 <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   <span className="text-sm">Сообщения</span>
+                </Button>
+              </Link>
+              <Link href="/moderation">
+                <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200">
+                  <Shield className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Модерация</span>
                 </Button>
               </Link>
             </div>

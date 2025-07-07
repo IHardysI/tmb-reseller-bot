@@ -30,6 +30,7 @@ import {
   MapPin,
   Home,
   ShoppingCart,
+  Shield,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -179,8 +180,8 @@ export function AppSidebar({
       <SidebarHeader className="px-6 py-4 border-b bg-white shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Peer Swap</h2>
         {isMobile && (
-          <div className="flex flex-wrap gap-2 mt-4 pb-2 border-gray-200">
-            <div className="flex-1 min-w-[calc(50%-4px)]">
+          <div className="grid grid-cols-3 gap-2 mt-4 pb-2 border-gray-200">
+            <div className="flex-1">
               <Button 
                 variant="outline" 
                 className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
@@ -189,7 +190,7 @@ export function AppSidebar({
                 <Home className="h-5 w-5" />
               </Button>
             </div>
-            <div className="flex-1 min-w-[calc(50%-4px)]">
+            <div className="flex-1">
               <Button 
                 variant="outline" 
                 className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
@@ -198,7 +199,7 @@ export function AppSidebar({
                 <User className="h-5 w-5" />
               </Button>
             </div>
-            <div className="flex-1 min-w-[calc(50%-4px)]">
+            <div className="flex-1">
               <Button 
                 variant="outline" 
                 className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2 relative"
@@ -212,13 +213,22 @@ export function AppSidebar({
                 )}
             </Button>
             </div>
-            <div className="flex-1 min-w-[calc(50%-4px)]">
+            <div className="flex-1">
               <Button 
                 variant="outline" 
                 className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
                 onClick={() => handleNavigate("/messages")}
               >
                 <MessageCircle className="h-5 w-5" />
+            </Button>
+            </div>
+            <div className="flex-1">
+              <Button 
+                variant="outline" 
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200 p-2"
+                onClick={() => handleNavigate("/moderation")}
+              >
+                <Shield className="h-5 w-5" />
             </Button>
             </div>
           </div>

@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Send, ImageIcon, FileText, Award } from "lucide-react"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { PageLoader } from "@/components/ui/loader"
+import { ImagePreview } from "@/components/ui/image-preview"
 import { Id } from "@/../convex/_generated/dataModel"
 
 export default function NewChatPage() {
@@ -23,6 +24,15 @@ export default function NewChatPage() {
   const [message, setMessage] = useState("")
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [imagePreview, setImagePreview] = useState<{
+    isOpen: boolean
+    images: string[]
+    currentIndex: number
+  }>({
+    isOpen: false,
+    images: [],
+    currentIndex: 0
+  })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -154,6 +164,23 @@ export default function NewChatPage() {
     }
   }
 
+  const handleImagePreview = (file: File) => {
+    const url = URL.createObjectURL(file)
+    setImagePreview({
+      isOpen: true,
+      images: [url],
+      currentIndex: 0
+    })
+  }
+
+  const handleCloseImagePreview = () => {
+    setImagePreview({
+      isOpen: false,
+      images: [],
+      currentIndex: 0
+    })
+  }
+
   if (!telegramUser) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
@@ -230,11 +257,19 @@ export default function NewChatPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {attachedFiles[0].type.startsWith('image/') ? (
-                      <ImageIcon className="h-4 w-4 text-blue-600" />
+                      <button
+                        onClick={() => handleImagePreview(attachedFiles[0])}
+                        className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+                      >
+                        <ImageIcon className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">{attachedFiles[0].name}</span>
+                      </button>
                     ) : (
-                      <FileText className="h-4 w-4 text-blue-600" />
+                      <div className="flex items-center space-x-2">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">{attachedFiles[0].name}</span>
+                      </div>
                     )}
-                    <span className="text-sm font-medium text-blue-800">{attachedFiles[0].name}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -304,6 +339,13 @@ export default function NewChatPage() {
           className="hidden"
         />
       </div>
+
+      <ImagePreview
+        images={imagePreview.images}
+        isOpen={imagePreview.isOpen}
+        onClose={handleCloseImagePreview}
+        initialIndex={imagePreview.currentIndex}
+      />
     </div>
   )
 } 

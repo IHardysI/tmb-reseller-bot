@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import ChatItem from "@/components/widgets/chat-item"
 import { Badge } from "@/components/ui/badge"
-import Header from "@/components/widgets/header"
 import { ComplaintDialog } from "@/components/ui/complaint-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
@@ -179,8 +178,6 @@ export default function MessagesPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <Header title="Сообщения" />
-
       <div className="bg-white border-b flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex space-x-1 bg-gray-50 p-1 rounded-xl">

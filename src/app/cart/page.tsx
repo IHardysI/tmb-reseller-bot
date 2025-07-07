@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ShoppingBag, CreditCard, Truck, Shield, MessageCircle } from "lucide-react"
-import Header from "@/components/widgets/header"
 import CartItemComponent from "@/components/widgets/cart-item"
 import { useCart } from "@/contexts/CartContext"
 
@@ -60,8 +59,6 @@ export default function CartPage() {
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="Корзина" />
-
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
           <div className="bg-gray-100 rounded-full p-8 mb-6">
             <ShoppingBag className="h-16 w-16 text-gray-400" />
@@ -80,8 +77,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="Корзина" subtitle={`${cartItems.length} ${cartItems.length === 1 ? "товар" : cartItems.length < 5 ? "товара" : "товаров"}`} />
-
       <div className="max-w-7xl mx-auto p-4 lg:p-6">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
           <div className="xl:col-span-2">

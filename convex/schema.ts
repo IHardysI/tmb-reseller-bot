@@ -101,6 +101,7 @@ export default defineSchema({
     lastMessageAt: v.optional(v.number()),
     createdAt: v.number(),
     isActive: v.boolean(),
+    hiddenFor: v.optional(v.array(v.id("users"))),
   }).index("by_buyer", ["buyerId"])
     .index("by_seller", ["sellerId"])
     .index("by_post", ["postId"])
@@ -156,4 +157,42 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_category", ["category"])
     .index("by_chat", ["chatId"]),
+
+  moderationCases: defineTable({
+    chatId: v.id("chats"),
+    buyerId: v.id("users"),
+    sellerId: v.id("users"),
+    postId: v.id("posts"),
+    messageId: v.id("messages"),
+    messageContent: v.string(),
+    detectedKeywords: v.array(v.string()),
+    riskLevel: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    warningType: v.union(
+      v.literal("external_communication"),
+      v.literal("direct_payment"),
+      v.literal("personal_meeting"),
+      v.literal("bypass_platform"),
+      v.literal("suspicious_contact")
+    ),
+    status: v.union(v.literal("pending"), v.literal("resolved"), v.literal("dismissed")),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+    actionType: v.optional(v.union(
+      v.literal("block_buyer"),
+      v.literal("block_seller"),
+      v.literal("block_both"),
+      v.literal("dismiss_case"),
+      v.literal("warning_issued")
+    )),
+    reason: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_chat", ["chatId"])
+    .index("by_buyer", ["buyerId"])
+    .index("by_seller", ["sellerId"])
+    .index("by_status", ["status"])
+    .index("by_risk_level", ["riskLevel"])
+    .index("by_warning_type", ["warningType"])
+    .index("by_created_at", ["createdAt"]),
 }); 
