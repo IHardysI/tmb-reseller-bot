@@ -11,6 +11,7 @@ import { AppRoot } from '@telegram-apps/telegram-ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ErrorPage } from '@/components/ErrorPage';
 import { useDidMount } from '@/hooks/useDidMount';
+import { UserInitializer } from '@/components/UserInitializer';
 import Loader from '@/components/ui/loader';
 
 import './styles.css';
@@ -26,6 +27,7 @@ function RootInner({ children }: PropsWithChildren) {
         ['macos', 'ios'].includes(lp.tgWebAppPlatform) ? 'ios' : 'base'
       }
     >
+      <UserInitializer />
       {children}
     </AppRoot>
   );

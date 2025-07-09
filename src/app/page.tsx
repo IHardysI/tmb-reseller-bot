@@ -25,7 +25,7 @@ import Link from "next/link"
 import ProductDetail from "@/components/widgets/product-detail"
 import ProductCard from "@/components/widgets/product-card"
 import { SidebarTrigger } from "@/components/widgets/sidebar"
-import { AuthGuard } from '@/components/AuthGuard'
+import { OptimizedAuthGuard } from '@/components/OptimizedAuthGuard'
 import { FloatingActionButton } from "@/components/ui/floating-action-button"
 import { useFilters } from "@/contexts/FilterContext"
 import AddItemDialog from "@/components/widgets/create-post"
@@ -331,8 +331,8 @@ function MarketplaceContent() {
 
 export default function Home() {
   return (
-    <AuthGuard>
+    <OptimizedAuthGuard>
       <MarketplaceContent />
-    </AuthGuard>
+    </OptimizedAuthGuard>
   )
 }

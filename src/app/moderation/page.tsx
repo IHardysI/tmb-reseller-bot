@@ -38,7 +38,7 @@ import {
   MessageCircleWarning,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
-import { useTelegramUser } from "@/hooks/useTelegramUser";
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser";
 
 const BLOCK_REASONS = [
   { value: "spam", label: "Спам и навязчивые сообщения", color: "bg-yellow-100 text-yellow-800" },
@@ -157,11 +157,9 @@ const formatTime = (timestamp: number) => {
 };
 
 export default function ModerationPage() {
-  const { userId } = useTelegramUser();
-  const currentUser = useQuery(api.users.getUserByTelegramId, 
-    userId ? { telegramId: userId } : "skip"
-  );
-  const userRole = useQuery(api.users.getCurrentUserRole);
+  const telegramUser = useOptimizedTelegramUser();
+  const currentUser = telegramUser.userData;
+  const userRole = telegramUser.isAdmin ? { isAdmin: true, role: 'admin' } : { isAdmin: false, role: 'user' };
 
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [filterRisk, setFilterRisk] = useState<string>("all");
@@ -197,7 +195,7 @@ export default function ModerationPage() {
     blockedUsers: blockedUsers?.length || 0,
   };
 
-  if (userRole === null) {
+  if (!telegramUser.isInitialized || telegramUser.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -208,7 +206,7 @@ export default function ModerationPage() {
     );
   }
 
-  if (userRole && !userRole.isAdmin) {
+  if (!telegramUser.isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -227,17 +225,7 @@ export default function ModerationPage() {
   console.log("- Active case IDs:", activeCases?.map(c => c._id) || []);
   console.log("- Resolved case IDs:", resolvedCases?.map(c => c._id) || []);
 
-  // Show loading state if user is not loaded yet
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   const filteredActiveCases = (activeCases || []).filter((case_) => {
     const matchesRisk = filterRisk === "all" || case_.highestRiskLevel === filterRisk;
@@ -288,7 +276,7 @@ export default function ModerationPage() {
       const selectedReason = BLOCK_REASONS.find(r => r.value === selectedBlockReason);
       const result = await blockUserMutation({
         userId: user.id,
-        moderatorId: currentUser._id,
+        moderatorId: currentUser._id! as any,
         reason: selectedReason?.label || selectedBlockReason,
         caseId: selectedCase?._id,
       });
@@ -330,7 +318,7 @@ export default function ModerationPage() {
       const selectedReason = WARNING_REASONS.find(r => r.value === selectedWarningReason);
       const result = await sendWarningMutation({
         caseId: selectedCase._id,
-        moderatorId: currentUser._id,
+        moderatorId: currentUser._id! as any,
         reason: selectedReason?.label || selectedWarningReason,
       });
       
@@ -368,7 +356,7 @@ export default function ModerationPage() {
       const selectedReason = DISMISS_REASONS.find(r => r.value === selectedDismissReason);
       const result = await resolveCaseMutation({
         caseId: selectedCase._id,
-        moderatorId: currentUser._id,
+        moderatorId: currentUser._id! as any,
         actionType: "dismiss_case",
         reason: selectedReason?.label || selectedDismissReason,
       });
@@ -406,7 +394,7 @@ export default function ModerationPage() {
       const selectedReason = UNBLOCK_REASONS.find(r => r.value === selectedUnblockReason);
       await unblockUserMutation({
         userId: selectedUserToUnblock.id,
-        moderatorId: currentUser._id,
+        moderatorId: currentUser._id! as any,
         reason: selectedReason?.label || selectedUnblockReason,
       });
       setShowUnblockDialog(false);

@@ -23,9 +23,9 @@ import {
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { Id } from "../../../convex/_generated/dataModel"
-import { useTelegramUser } from "@/hooks/useTelegramUser"
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser"
 import { useRouter } from "next/navigation"
-import { AuthGuard } from '@/components/AuthGuard'
+import { OptimizedAuthGuard } from '@/components/OptimizedAuthGuard'
 import Link from "next/link"
 import { PageLoader } from "@/components/ui/loader"
 import ProductCard from "@/components/widgets/product-card"
@@ -49,21 +49,18 @@ interface UserProfile {
 
 function ProfilePageContent() {
   const router = useRouter()
-  const telegramUser = useTelegramUser()
+  const telegramUser = useOptimizedTelegramUser()
   
-  const currentUser = useQuery(
-    api.users.getUserByTelegramId, 
-    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
-  )
+  const currentUser = telegramUser.userData
   
   const userPosts = useQuery(
     api.posts.getUserPosts,
-    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
+    telegramUser.userId ? { telegramId: telegramUser.userId } : "skip"
   )
   
   const likedPosts = useQuery(
     api.posts.getLikedPosts,
-    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
+    telegramUser.userId ? { telegramId: telegramUser.userId } : "skip"
   )
   
   const deletePost = useMutation(api.posts.deletePost)
@@ -98,7 +95,7 @@ function ProfilePageContent() {
     avatar: currentUser?.avatar || "/placeholder.svg",
     trustLevel: currentUser?.trustLevel || "bronze",
     rating: currentUser?.rating || 0,
-    joinDate: currentUser ? new Date(currentUser.registeredAt).toISOString().split('T')[0] : "",
+    joinDate: currentUser?.registeredAt ? new Date(currentUser.registeredAt).toISOString().split('T')[0] : "",
     location: currentUser?.city || "",
     totalSales: currentUser?.soldCount || 0,
     activeListings: userPosts ? userPosts.filter(p => p.isActive).length : 0,
@@ -141,7 +138,7 @@ function ProfilePageContent() {
       case "liked":
         return likedPosts.map(post => mapPostToProduct(
           post,
-          post.telegramId === telegramUser?.userId,
+          post.telegramId === telegramUser.userId,
           true
         ))
       case "active":
@@ -150,7 +147,7 @@ function ProfilePageContent() {
           .map(post => mapPostToProduct(
             post,
             true,
-            post.likedBy?.includes(currentUser._id) || false
+            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
           ))
       case "sold":
         return userPosts
@@ -158,7 +155,7 @@ function ProfilePageContent() {
           .map(post => mapPostToProduct(
             post,
             true,
-            post.likedBy?.includes(currentUser._id) || false
+            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
           ))
       default:
         return userPosts
@@ -166,7 +163,7 @@ function ProfilePageContent() {
           .map(post => mapPostToProduct(
             post,
             true,
-            post.likedBy?.includes(currentUser._id) || false
+            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
           ))
     }
   }
@@ -178,16 +175,16 @@ function ProfilePageContent() {
   }
 
   const handleToggleFavorite = async (productId: string) => {
-    if (!telegramUser?.userId) return
+    if (!telegramUser.userId) return
     
     const product = filteredItems.find(p => p.id === productId)
     if (!product) return
     
     try {
       if (product.isFavorite) {
-        await unlikePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+        await unlikePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
       } else {
-        await likePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+        await likePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
       }
     } catch (error) {
       console.error("Error toggling favorite:", error)
@@ -200,9 +197,9 @@ function ProfilePageContent() {
   }
 
   const handleDeleteItem = async (productId: string) => {
-    if (!telegramUser?.userId) return
+    if (!telegramUser.userId) return
     try {
-      await deletePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+      await deletePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
     } catch (error) {
       console.error("Error deleting post:", error)
     }
@@ -236,7 +233,7 @@ function ProfilePageContent() {
   }
 
   const uploadAvatar = async () => {
-    if (!avatarFile || !telegramUser?.userId) return null
+    if (!avatarFile || !telegramUser.userId) return null
 
     try {
       setIsUploadingAvatar(true)
@@ -258,7 +255,7 @@ function ProfilePageContent() {
       const { storageId } = await result.json()
       console.log("File uploaded, storage ID:", storageId)
       
-      const updateResult = await updateUserAvatar({ telegramId: telegramUser.userId, avatarStorageId: storageId })
+      const updateResult = await updateUserAvatar({ telegramId: telegramUser.userId!, avatarStorageId: storageId })
       console.log("Avatar updated in database:", updateResult)
       
       return storageId
@@ -271,7 +268,7 @@ function ProfilePageContent() {
   }
 
   const handleSaveProfile = async () => {
-    if (!telegramUser?.userId) return
+    if (!telegramUser.userId) return
     
     try {
       setIsSavingProfile(true)
@@ -281,7 +278,7 @@ function ProfilePageContent() {
       }
 
       await updateUserProfile({
-        telegramId: telegramUser.userId,
+        telegramId: telegramUser.userId!,
         firstName: editForm.firstName,
         lastName: editForm.lastName || undefined,
         city: editForm.city,
@@ -621,8 +618,8 @@ function ProfilePageContent() {
 
 export default function ProfilePage() {
   return (
-    <AuthGuard>
+    <OptimizedAuthGuard>
       <ProfilePageContent />
-    </AuthGuard>
+    </OptimizedAuthGuard>
   )
 } 

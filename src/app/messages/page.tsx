@@ -9,7 +9,7 @@ import ChatItem from "@/components/widgets/chat-item"
 import { Badge } from "@/components/ui/badge"
 import { ComplaintDialog } from "@/components/ui/complaint-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { useTelegramUser } from "@/hooks/useTelegramUser"
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser"
 import { PageLoader } from '@/components/ui/loader'
 
 interface ChatItemData {
@@ -39,7 +39,7 @@ interface ChatItemData {
 }
 
 export default function MessagesPage() {
-  const telegramUser = useTelegramUser()
+  const telegramUser = useOptimizedTelegramUser()
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<"all" | "selling" | "buying">("all")
   const [complaintDialog, setComplaintDialog] = useState<{
@@ -61,12 +61,10 @@ export default function MessagesPage() {
     chatId: null
   })
 
-  const currentUser = useQuery(api.users.getUserByTelegramId, 
-    telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
-  )
+  const currentUser = telegramUser.userData
   
   const chats = useQuery(api.chats.getUserChats, 
-    currentUser ? { userId: currentUser._id } : "skip"
+    currentUser?._id ? { userId: currentUser._id as any } : "skip"
   ) as ChatItemData[] | undefined
 
   const deleteChatMutation = useMutation(api.chats.deleteChat)
@@ -89,7 +87,7 @@ export default function MessagesPage() {
     try {
       await deleteChatMutation({
         chatId: chatId as any,
-        userId: currentUser._id
+        userId: currentUser._id! as any
       })
       setDeleteDialog({ open: false, chatId: null })
     } catch (error) {
@@ -105,7 +103,7 @@ export default function MessagesPage() {
 
     try {
       await blockUserMutation({
-        blockerId: currentUser._id,
+        blockerId: currentUser._id! as any,
         blockedUserId: chat.otherParticipant.id as any,
         reason: "Заблокирован через чат"
       })
@@ -133,7 +131,7 @@ export default function MessagesPage() {
 
     try {
       await createComplaintMutation({
-        complainantId: currentUser._id,
+        complainantId: currentUser._id! as any,
         reportedUserId: complaintDialog.userId as any,
         chatId: complaintDialog.chatId as any,
         category: category as any,
@@ -152,7 +150,7 @@ export default function MessagesPage() {
     return true
   }) || []
 
-  if (!telegramUser) {
+  if (!telegramUser.isInitialized || telegramUser.isLoading) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
         <PageLoader text="" />

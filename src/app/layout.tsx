@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";  
 import { ConvexClientProvider } from './ConvexClientProvider';
-import ClientLayout from "@/components/ClientLayout"
+import OptimizedClientLayout from "@/components/OptimizedClientLayout"
 import { CartProvider } from "@/contexts/CartContext"
 
 const geistSans = Geist({
@@ -30,9 +30,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ConvexClientProvider>
           <CartProvider>
-            <ClientLayout>
+            <OptimizedClientLayout>
               {children}
-            </ClientLayout>
+            </OptimizedClientLayout>
           </CartProvider>
         </ConvexClientProvider>
       </body>

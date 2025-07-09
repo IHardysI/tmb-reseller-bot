@@ -5,13 +5,11 @@ import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Ban, AlertTriangle, Clock, Mail } from "lucide-react";
-import { useTelegramUser } from "@/hooks/useTelegramUser";
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser";
 
 export default function BlockedPage() {
-  const { userId } = useTelegramUser();
-  const currentUser = useQuery(api.users.getUserByTelegramId, 
-    userId ? { telegramId: userId } : "skip"
-  );
+  const telegramUser = useOptimizedTelegramUser();
+  const currentUser = telegramUser.userData;
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -24,7 +22,7 @@ export default function BlockedPage() {
     });
   };
 
-  if (!currentUser?.isBlocked) {
+  if (!telegramUser.isBlocked || !currentUser) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -62,7 +60,7 @@ export default function BlockedPage() {
                 <span className="font-medium text-red-800">Причина блокировки:</span>
               </div>
               <p className="text-red-700 text-sm">
-                {currentUser.blockReason || "Не указана"}
+                {currentUser?.blockReason || "Не указана"}
               </p>
             </div>
             
@@ -72,7 +70,7 @@ export default function BlockedPage() {
                 <span className="font-medium text-gray-700">Дата блокировки:</span>
               </div>
               <p className="text-gray-600 text-sm">
-                {currentUser.blockedAt ? formatTime(currentUser.blockedAt) : "Не указана"}
+                {currentUser?.blockedAt ? formatTime(currentUser.blockedAt) : "Не указана"}
               </p>
             </div>
           </div>
@@ -96,7 +94,7 @@ export default function BlockedPage() {
               </div>
               <p className="text-blue-700 text-sm">
                 Отправьте письмо на support@example.com с описанием ситуации. 
-                Укажите ваш ID пользователя: <Badge variant="outline" className="ml-1">{currentUser._id}</Badge>
+                Укажите ваш ID пользователя: <Badge variant="outline" className="ml-1">{currentUser?._id || 'N/A'}</Badge>
               </p>
             </div>
           </div>

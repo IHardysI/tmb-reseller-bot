@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useTelegramUser } from "@/hooks/useTelegramUser"
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser"
 import { api } from "../../../../convex/_generated/api"
 import { FullScreenLoader } from "@/components/ui/loader"
 
@@ -33,12 +33,9 @@ export default function OnboardingPage() {
   const [isCompleting, setIsCompleting] = useState(false)
 
   const router = useRouter()
-  const { userId, userFirstName, userLastName, userName, userLanguage } = useTelegramUser()
+  const telegramUser = useOptimizedTelegramUser()
   
-  const existingUser = useQuery(
-    api.users.getUserByTelegramId,
-    userId ? { telegramId: userId } : 'skip'
-  )
+  const existingUser = telegramUser.userData
   
   const completeOnboarding = useMutation(api.users.completeOnboarding)
 
@@ -62,16 +59,16 @@ export default function OnboardingPage() {
   }
 
   const handleCompleteOnboarding = async () => {
-    if (!userId || !userFirstName || !canProceedFromStep3) return
+    if (!telegramUser.userId || !telegramUser.userFirstName || !canProceedFromStep3) return
     
     setIsCompleting(true)
     try {
       await completeOnboarding({
-        telegramId: userId,
-        firstName: userFirstName,
-        lastName: userLastName,
-        username: userName,
-        languageCode: userLanguage,
+        telegramId: telegramUser.userId,
+        firstName: telegramUser.userFirstName,
+        lastName: telegramUser.userLastName,
+        username: telegramUser.userName,
+        languageCode: telegramUser.userLanguage,
         city: formData.city,
         deliveryAddress: formData.address,
       })
@@ -87,11 +84,11 @@ export default function OnboardingPage() {
     router.push("/")
   }
 
-  if (!userId || !userFirstName) {
+  if (!telegramUser.userId || !telegramUser.userFirstName) {
     return <FullScreenLoader text="Инициализация..." />
   }
 
-  if (existingUser === undefined) {
+  if (!telegramUser.isInitialized) {
     return <FullScreenLoader text="Загрузка профиля..." />
   }
 

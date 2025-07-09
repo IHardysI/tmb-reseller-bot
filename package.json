@@ -33,6 +33,7 @@
     "convex": "^1.25.0",
     "dotenv": "^16.4.5",
     "eruda": "^3.0.1",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.523.0",
     "next": "15.3.1",
     "node-telegram-bot-api": "^0.66.0",
@@ -41,9 +42,11 @@
     "react": "^18",
     "react-dom": "^18",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.10"
+    "tailwindcss": "^4.1.10",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/node-telegram-bot-api": "^0.64.7",
     "@types/react": "^18",
