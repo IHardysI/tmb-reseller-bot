@@ -501,9 +501,9 @@ export default function ModerationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-2 md:p-4 lg:p-6 space-y-3 md:space-y-6">
+      <div className="w-full max-w-6xl mx-auto p-2 md:p-4 lg:p-6 space-y-3 md:space-y-6">
         {/* Statistics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
           <Card>
             <CardContent className="p-3 md:p-6">
               <div className="flex items-center space-x-2">
@@ -511,7 +511,7 @@ export default function ModerationPage() {
                   <Clock className="h-4 w-4 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.pendingWarnings}</p>
+                  <p className="text-lg md:text-2xl font-bold">{stats.pendingWarnings}</p>
                   <p className="text-xs text-gray-600">Активные дела</p>
                 </div>
               </div>
@@ -525,7 +525,7 @@ export default function ModerationPage() {
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.highRiskWarnings}</p>
+                  <p className="text-lg md:text-2xl font-bold">{stats.highRiskWarnings}</p>
                   <p className="text-xs text-gray-600">Высокий риск</p>
                 </div>
               </div>
@@ -539,7 +539,7 @@ export default function ModerationPage() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.resolvedCases}</p>
+                  <p className="text-lg md:text-2xl font-bold">{stats.resolvedCases}</p>
                   <p className="text-xs text-gray-600">Решенные дела</p>
                 </div>
               </div>
@@ -553,7 +553,7 @@ export default function ModerationPage() {
                   <Ban className="h-4 w-4 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.blockedUsers}</p>
+                  <p className="text-lg md:text-2xl font-bold">{stats.blockedUsers}</p>
                   <p className="text-xs text-gray-600">Заблокированные</p>
                 </div>
               </div>
@@ -591,10 +591,10 @@ export default function ModerationPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="active-cases" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="active-cases">Активные дела</TabsTrigger>
-            <TabsTrigger value="resolved-cases">Решенные дела</TabsTrigger>
-            <TabsTrigger value="blocked-users">Заблокированные пользователи</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="active-cases" className="text-xs md:text-sm">Активные дела</TabsTrigger>
+            <TabsTrigger value="resolved-cases" className="text-xs md:text-sm">Решенные дела</TabsTrigger>
+            <TabsTrigger value="blocked-users" className="text-xs md:text-sm">Заблокированные</TabsTrigger>
           </TabsList>
           <TabsContent value="active-cases">
             <Card>
@@ -709,9 +709,9 @@ export default function ModerationPage() {
         setSelectedDismissReason("");
         setSelectedBlockReason("");
       }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2 text-base md:text-lg">
+            <DialogTitle className="flex items-center space-x-2 text-sm md:text-lg">
               <AlertTriangle className="h-4 w-4 md:h-5 md:w-5" />
               <span>Детали дела модерации</span>
             </DialogTitle>
@@ -719,7 +719,7 @@ export default function ModerationPage() {
 
           {selectedCase && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 md:p-4 bg-gray-50 rounded-lg gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={getRiskColor(selectedCase.highestRiskLevel)} variant="outline">
                     Риск: {selectedCase.highestRiskLevel === "high" ? "Высокий" : selectedCase.highestRiskLevel === "medium" ? "Средний" : "Низкий"}
@@ -729,13 +729,13 @@ export default function ModerationPage() {
                   </Badge>
                   <div className="flex items-center space-x-1 text-gray-600">
                     {getWarningTypeIcon(selectedCase.primaryWarningType)}
-                    <span className="text-sm">{getWarningTypeLabel(selectedCase.primaryWarningType)}</span>
+                    <span className="text-xs md:text-sm">{getWarningTypeLabel(selectedCase.primaryWarningType)}</span>
                   </div>
                 </div>
-                <span className="text-sm text-gray-500">{formatTime(selectedCase.createdAt)}</span>
+                <span className="text-xs md:text-sm text-gray-500">{formatTime(selectedCase.createdAt)}</span>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Left Column - Case Info */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
