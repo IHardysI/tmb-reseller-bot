@@ -24,7 +24,7 @@ import Link from "next/link"
 
 import ProductDetail from "@/components/widgets/product-detail"
 import ProductCard from "@/components/widgets/product-card"
-import { SidebarTrigger } from "@/components/widgets/sidebar"
+
 import { OptimizedAuthGuard } from '@/components/OptimizedAuthGuard'
 import { FloatingActionButton } from "@/components/ui/floating-action-button"
 import { useFilters } from "@/contexts/FilterContext"
@@ -249,17 +249,14 @@ function MarketplaceContent() {
 
             {/* Mobile Layout */}
             <div className="md:hidden space-y-3">
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Поиск по названию, бренду..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <SidebarTrigger />
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Поиск по названию, бренду..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
               
               <Select value={sortBy} onValueChange={setSortBy}>
