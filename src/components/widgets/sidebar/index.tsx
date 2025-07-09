@@ -36,6 +36,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
+import { useTelegramUser } from "@/hooks/useTelegramUser"
 
 const conditions = [
   "Новое",
@@ -87,6 +88,21 @@ export function AppSidebar({
   const router = useRouter()
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
+  const { userId } = useTelegramUser()
+  
+  // Get notification counts
+  const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" })
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    userId ? { telegramId: userId } : "skip"
+  )
+  const userChats = useQuery(api.chats.getUserChats, 
+    currentUser ? { userId: currentUser._id } : "skip"
+  )
+  
+  const activeCasesCount = activeCases?.length || 0
+  const unreadMessagesCount = userChats?.reduce((total, chat) => {
+    return total + (chat.unreadCount || 0)
+  }, 0) || 0
   
   const handleNavigate = (path: string) => {
     if (isMobile) {
@@ -216,19 +232,29 @@ export function AppSidebar({
             <div className="flex-1">
               <Button 
                 variant="outline" 
-                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2"
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 p-2 relative"
                 onClick={() => handleNavigate("/messages")}
               >
                 <MessageCircle className="h-5 w-5" />
+                {unreadMessagesCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center border-2 border-white text-[10px]">
+                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                  </Badge>
+                )}
             </Button>
             </div>
             <div className="flex-1">
               <Button 
                 variant="outline" 
-                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200 p-2"
+                className="w-full aspect-square justify-center border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200 p-2 relative"
                 onClick={() => handleNavigate("/moderation")}
               >
                 <Shield className="h-5 w-5" />
+                {activeCasesCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center border-2 border-white text-[10px]">
+                    {activeCasesCount > 99 ? '99+' : activeCasesCount}
+                  </Badge>
+                )}
             </Button>
             </div>
           </div>

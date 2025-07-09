@@ -35,8 +35,46 @@ import {
   Hash,
   Eye,
   Unlock,
+  MessageCircleWarning,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
+import { useTelegramUser } from "@/hooks/useTelegramUser";
+
+const BLOCK_REASONS = [
+  { value: "spam", label: "Спам и навязчивые сообщения", color: "bg-yellow-100 text-yellow-800" },
+  { value: "fraud", label: "Мошенничество", color: "bg-red-100 text-red-800" },
+  { value: "bypass_platform", label: "Обход платформы", color: "bg-orange-100 text-orange-800" },
+  { value: "inappropriate_behavior", label: "Неподобающее поведение", color: "bg-purple-100 text-purple-800" },
+  { value: "fake_products", label: "Фальшивые товары", color: "bg-pink-100 text-pink-800" },
+  { value: "harassment", label: "Домогательства", color: "bg-red-100 text-red-800" },
+  { value: "external_deals", label: "Внешние сделки", color: "bg-blue-100 text-blue-800" },
+  { value: "policy_violation", label: "Нарушение политики", color: "bg-gray-100 text-gray-800" },
+];
+
+const WARNING_REASONS = [
+  { value: "first_warning", label: "Первое предупреждение о нарушении правил" },
+  { value: "platform_bypass", label: "Попытка обхода платформы" },
+  { value: "external_communication", label: "Попытка общения вне платформы" },
+  { value: "inappropriate_content", label: "Неподобающее содержание сообщений" },
+  { value: "suspicious_behavior", label: "Подозрительное поведение" },
+];
+
+const DISMISS_REASONS = [
+  { value: "false_positive", label: "Ложное срабатывание системы" },
+  { value: "insufficient_evidence", label: "Недостаточно доказательств" },
+  { value: "user_clarification", label: "Пользователь предоставил разъяснения" },
+  { value: "minor_violation", label: "Незначительное нарушение" },
+  { value: "resolved_independently", label: "Решено самостоятельно пользователями" },
+];
+
+const UNBLOCK_REASONS = [
+  { value: "appeal_successful", label: "Успешная апелляция пользователя" },
+  { value: "mistaken_block", label: "Ошибочная блокировка" },
+  { value: "resolved_issue", label: "Проблема решена" },
+  { value: "technical_error", label: "Техническая ошибка" },
+  { value: "policy_change", label: "Изменение политики" },
+  { value: "other", label: "Другая причина" },
+];
 
 const getRiskColor = (risk: string) => {
   switch (risk) {
@@ -119,17 +157,38 @@ const formatTime = (timestamp: number) => {
 };
 
 export default function ModerationPage() {
+  const { userId } = useTelegramUser();
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    userId ? { telegramId: userId } : "skip"
+  );
+  const userRole = useQuery(api.users.getCurrentUserRole);
+
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [filterRisk, setFilterRisk] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [selectedBlockReason, setSelectedBlockReason] = useState("");
+  const [selectedUserToBlock, setSelectedUserToBlock] = useState<any>(null);
+  const [showChatMessages, setShowChatMessages] = useState(false);
+  const [selectedWarningReason, setSelectedWarningReason] = useState("");
+  const [selectedDismissReason, setSelectedDismissReason] = useState("");
+  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
+  const [selectedUnblockReason, setSelectedUnblockReason] = useState("");
+  const [selectedUserToUnblock, setSelectedUserToUnblock] = useState<any>(null);
 
   const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" });
   const resolvedCases = useQuery(api.moderation.getModerationCases, { status: "resolved" });
   const blockedUsers = useQuery(api.moderation.getBlockedUsers, { limit: 100 });
+  const chatMessages = useQuery(
+    api.moderation.getChatMessages,
+    selectedCase ? { chatId: selectedCase.chatId, limit: 100 } : "skip"
+  );
+  
   const resolveCaseMutation = useMutation(api.moderation.resolveModerationCase);
-  const unblockUserMutation = useMutation(api.moderation.unblockUser);
+  const unblockUserMutation = useMutation(api.moderation.unblockUserPlatformWide);
+  const blockUserMutation = useMutation(api.moderation.blockUserPlatformWide);
+  const sendWarningMutation = useMutation(api.moderation.sendWarningMessage);
 
   const stats = {
     pendingWarnings: activeCases?.length || 0,
@@ -137,6 +196,48 @@ export default function ModerationPage() {
     resolvedCases: resolvedCases?.length || 0,
     blockedUsers: blockedUsers?.length || 0,
   };
+
+  if (userRole === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole && !userRole.isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Доступ запрещен</h2>
+          <p className="text-gray-600">У вас нет прав доступа к странице модерации</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Debug case counts
+  console.log("CURRENT CASE COUNTS:");
+  console.log("- Active cases:", activeCases?.length || 0);
+  console.log("- Resolved cases:", resolvedCases?.length || 0);
+  console.log("- Active case IDs:", activeCases?.map(c => c._id) || []);
+  console.log("- Resolved case IDs:", resolvedCases?.map(c => c._id) || []);
+
+  // Show loading state if user is not loaded yet
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredActiveCases = (activeCases || []).filter((case_) => {
     const matchesRisk = filterRisk === "all" || case_.highestRiskLevel === filterRisk;
@@ -170,43 +271,158 @@ export default function ModerationPage() {
     return matchesSearch;
   });
 
-  const handleResolveCase = async (caseId: Id<"moderationCases">, action: string) => {
-    if (!reviewNotes.trim()) {
-      alert("Пожалуйста, укажите причину");
+  const handleBlockUser = async (user: any, reason: string) => {
+    if (!selectedBlockReason) {
+      alert("Выберите причину блокировки");
+      return;
+    }
+
+    if (!currentUser?._id) {
+      alert("Ошибка: не удалось определить модератора");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await resolveCaseMutation({
-        caseId,
-        moderatorId: "test-moderator" as Id<"users">,
-        actionType: action as any,
-        reason: reviewNotes.trim(),
+      console.log("Blocking user:", user.id, "for case:", selectedCase?._id);
+      const selectedReason = BLOCK_REASONS.find(r => r.value === selectedBlockReason);
+      const result = await blockUserMutation({
+        userId: user.id,
+        moderatorId: currentUser._id,
+        reason: selectedReason?.label || selectedBlockReason,
+        caseId: selectedCase?._id,
       });
-      setSelectedCase(null);
-      setReviewNotes("");
-    } catch (error) {
-      console.error("Error resolving case:", error);
-      alert("Ошибка при решении дела");
+      
+      console.log("User blocked, result:", result);
+      
+      // Close block dialog but keep case dialog open for manual case closure
+      setShowBlockDialog(false);
+      setSelectedBlockReason("");
+      setSelectedUserToBlock(null);
+      
+      alert("Пользователь заблокирован");
+    } catch (error: any) {
+      console.error("Error blocking user:", error);
+      if (error?.message === "User is already blocked") {
+        alert("Пользователь уже заблокирован");
+      } else {
+        alert("Ошибка при блокировке пользователя");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUnblockUser = async (userId: Id<"users">) => {
-    const reason = prompt("Укажите причину разблокировки:");
-    if (!reason) return;
+  const handleSendWarning = async () => {
+    if (!selectedWarningReason) {
+      alert("Выберите причину предупреждения");
+      return;
+    }
 
+    if (!currentUser?._id) {
+      alert("Ошибка: не удалось определить модератора");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await unblockUserMutation({
-        blockedUserId: userId,
-        moderatorId: "test-moderator" as Id<"users">,
-        reason: reason.trim(),
+      console.log("Sending warning for case:", selectedCase._id);
+      const selectedReason = WARNING_REASONS.find(r => r.value === selectedWarningReason);
+      const result = await sendWarningMutation({
+        caseId: selectedCase._id,
+        moderatorId: currentUser._id,
+        reason: selectedReason?.label || selectedWarningReason,
       });
+      
+      console.log("Warning sent, result:", result);
+      
+      // Wait a moment for the query to refresh before closing
+      setTimeout(() => {
+        setSelectedCase(null);
+        setSelectedWarningReason("");
+      }, 500);
+      
+      alert("Предупреждение отправлено в чат");
     } catch (error) {
+      console.error("Error sending warning:", error);
+      alert("Ошибка при отправке предупреждения");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDismissCase = async () => {
+    if (!selectedDismissReason) {
+      alert("Выберите причину отклонения");
+      return;
+    }
+
+    if (!currentUser?._id) {
+      alert("Ошибка: не удалось определить модератора");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log("Dismissing case:", selectedCase._id);
+      const selectedReason = DISMISS_REASONS.find(r => r.value === selectedDismissReason);
+      const result = await resolveCaseMutation({
+        caseId: selectedCase._id,
+        moderatorId: currentUser._id,
+        actionType: "dismiss_case",
+        reason: selectedReason?.label || selectedDismissReason,
+      });
+      
+      console.log("Case dismissed, result:", result);
+      
+      // Wait a moment for the query to refresh before closing
+      setTimeout(() => {
+        setSelectedCase(null);
+        setSelectedDismissReason("");
+      }, 500);
+    } catch (error) {
+      console.error("Error dismissing case:", error);
+      alert("Ошибка при отклонении дела");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUnblockUser = async (userId: Id<"users">, userName: string) => {
+    setSelectedUserToUnblock({ id: userId, name: userName });
+    setShowUnblockDialog(true);
+  };
+
+  const handleUnblockConfirm = async () => {
+    if (!selectedUnblockReason || !selectedUserToUnblock) return;
+
+    if (!currentUser?._id) {
+      alert("Ошибка: не удалось определить модератора");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const selectedReason = UNBLOCK_REASONS.find(r => r.value === selectedUnblockReason);
+      await unblockUserMutation({
+        userId: selectedUserToUnblock.id,
+        moderatorId: currentUser._id,
+        reason: selectedReason?.label || selectedUnblockReason,
+      });
+      setShowUnblockDialog(false);
+      setSelectedUnblockReason("");
+      setSelectedUserToUnblock(null);
+    } catch (error: any) {
       console.error("Error unblocking user:", error);
-      alert("Ошибка при разблокировке пользователя");
+      if (error?.message === "User is not blocked") {
+        alert("Пользователь не заблокирован");
+      } else if (error?.message === "Block record not found") {
+        alert("Запись о блокировке не найдена");
+      } else {
+        alert("Ошибка при разблокировке пользователя");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -302,13 +518,13 @@ export default function ModerationPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
           <Card>
             <CardContent className="p-3 md:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-orange-100 rounded-full flex items-center justify-center mr-2 md:mr-3">
-                  <Clock className="w-3 h-3 md:w-4 md:h-4 text-orange-600" />
+              <div className="flex items-center space-x-2">
+                <div className="p-2  bg-orange-100 rounded-lg">
+                  <Clock className="h-4 w-4 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Активные дела</p>
-                  <p className="text-lg md:text-2xl font-bold">{stats.pendingWarnings}</p>
+                  <p className="text-2xl font-bold">{stats.pendingWarnings}</p>
+                  <p className="text-xs text-gray-600">Активные дела</p>
                 </div>
               </div>
             </CardContent>
@@ -316,13 +532,13 @@ export default function ModerationPage() {
 
           <Card>
             <CardContent className="p-3 md:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-red-100 rounded-full flex items-center justify-center mr-2 md:mr-3">
-                  <AlertTriangle className="w-3 h-3 md:w-4 md:h-4 text-red-600" />
+              <div className="flex items-center space-x-2">
+                <div className="p-2  bg-red-100 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Высокий риск</p>
-                  <p className="text-lg md:text-2xl font-bold">{stats.highRiskWarnings}</p>
+                  <p className="text-2xl font-bold">{stats.highRiskWarnings}</p>
+                  <p className="text-xs text-gray-600">Высокий риск</p>
                 </div>
               </div>
             </CardContent>
@@ -330,13 +546,13 @@ export default function ModerationPage() {
 
           <Card>
             <CardContent className="p-3 md:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-full flex items-center justify-center mr-2 md:mr-3">
-                  <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-green-600" />
+              <div className="flex items-center space-x-2">
+                <div className="p-2  bg-green-100 rounded-lg">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Решенные дела</p>
-                  <p className="text-lg md:text-2xl font-bold">{stats.resolvedCases}</p>
+                  <p className="text-2xl font-bold">{stats.resolvedCases}</p>
+                  <p className="text-xs text-gray-600">Решенные дела</p>
                 </div>
               </div>
             </CardContent>
@@ -344,21 +560,21 @@ export default function ModerationPage() {
 
           <Card>
             <CardContent className="p-3 md:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-100 rounded-full flex items-center justify-center mr-2 md:mr-3">
-                  <Ban className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
+              <div className="flex items-center space-x-2">
+                <div className="p-2  bg-purple-100 rounded-lg">
+                  <Ban className="h-4 w-4 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Заблокированные</p>
-                  <p className="text-lg md:text-2xl font-bold">{stats.blockedUsers}</p>
+                  <p className="text-2xl font-bold">{stats.blockedUsers}</p>
+                  <p className="text-xs text-gray-600">Заблокированные</p>
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> 
         </div>
 
         {/* Filters */}
-        <Card>
+        <Card className="py-0!">
           <CardContent className="p-2 md:p-4">
             <div className="flex flex-col md:flex-row gap-2 md:gap-4">
               <div className="relative flex-1">
@@ -474,7 +690,7 @@ export default function ModerationPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleUnblockUser(block.blockedUser?.id as Id<"users">)}
+                                onClick={() => handleUnblockUser(block.blockedUser?.id as Id<"users">, `${block.blockedUser?.firstName} ${block.blockedUser?.lastName}`)}
                                 className="w-full sm:w-auto h-7 md:h-8 px-2 md:px-3"
                               >
                                 <Unlock className="h-3 w-3 md:h-4 md:w-4 mr-1" />
@@ -498,9 +714,14 @@ export default function ModerationPage() {
         </Tabs>
       </div>
 
-      {/* Case Detail Dialog */}
-      <Dialog open={selectedCase !== null} onOpenChange={() => setSelectedCase(null)}>
-        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      {/* Enhanced Case Detail Dialog */}
+      <Dialog open={selectedCase !== null} onOpenChange={() => {
+        setSelectedCase(null);
+        setSelectedWarningReason("");
+        setSelectedDismissReason("");
+        setSelectedBlockReason("");
+      }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2 text-base md:text-lg">
               <AlertTriangle className="h-4 w-4 md:h-5 md:w-5" />
@@ -509,9 +730,9 @@ export default function ModerationPage() {
           </DialogHeader>
 
           {selectedCase && (
-            <div className="space-y-3 md:space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 md:p-4 bg-gray-50 rounded-lg gap-2">
-                <div className="flex flex-wrap items-center gap-2 md:gap-4">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className={getRiskColor(selectedCase.highestRiskLevel)} variant="outline">
                     Риск: {selectedCase.highestRiskLevel === "high" ? "Высокий" : selectedCase.highestRiskLevel === "medium" ? "Средний" : "Низкий"}
                   </Badge>
@@ -526,183 +747,445 @@ export default function ModerationPage() {
                 <span className="text-sm text-gray-500">{formatTime(selectedCase.createdAt)}</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <Card>
-                  <CardHeader className="pb-2 md:pb-3">
-                    <CardTitle className="text-sm">Покупатель</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-2 md:space-x-3">
-                      <Avatar className="h-8 w-8 md:h-12 md:w-12">
-                        <AvatarImage src={selectedCase.buyer?.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="text-xs">{selectedCase.buyer?.firstName?.[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm md:text-base font-medium truncate">{selectedCase.buyer?.firstName} {selectedCase.buyer?.lastName}</p>
-                        <p className="text-xs md:text-sm text-gray-600 truncate">@{selectedCase.buyer?.username}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Left Column - Case Info */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          Покупатель
+                          {selectedCase.buyer?.isBlocked ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="h-6 px-2 text-xs bg-red-50 text-red-700 border-red-200"
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Заблокирован
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedUserToBlock(selectedCase.buyer);
+                                setShowBlockDialog(true);
+                              }}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Блок
+                            </Button>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={selectedCase.buyer?.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="text-xs">{selectedCase.buyer?.firstName?.[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{selectedCase.buyer?.firstName} {selectedCase.buyer?.lastName}</p>
+                            <p className="text-xs text-gray-600 truncate">@{selectedCase.buyer?.username}</p>
+                            {selectedCase.buyer?.isBlocked && (
+                              <div className="mt-1">
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+                                  Заблокирован
+                                </Badge>
+                                {selectedCase.buyer?.blockReason && (
+                                  <p className="text-xs text-red-600 mt-1 truncate">{selectedCase.buyer.blockReason}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardHeader className="pb-2 md:pb-3">
-                    <CardTitle className="text-sm">Продавец</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-2 md:space-x-3">
-                      <Avatar className="h-8 w-8 md:h-12 md:w-12">
-                        <AvatarImage src={selectedCase.seller?.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="text-xs">{selectedCase.seller?.firstName?.[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm md:text-base font-medium truncate">{selectedCase.seller?.firstName} {selectedCase.seller?.lastName}</p>
-                        <p className="text-xs md:text-sm text-gray-600 truncate">@{selectedCase.seller?.username}</p>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          Продавец
+                          {selectedCase.seller?.isBlocked ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="h-6 px-2 text-xs bg-red-50 text-red-700 border-red-200"
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Заблокирован
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedUserToBlock(selectedCase.seller);
+                                setShowBlockDialog(true);
+                              }}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Блок
+                            </Button>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={selectedCase.seller?.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="text-xs">{selectedCase.seller?.firstName?.[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{selectedCase.seller?.firstName} {selectedCase.seller?.lastName}</p>
+                            <p className="text-xs text-gray-600 truncate">@{selectedCase.seller?.username}</p>
+                            {selectedCase.seller?.isBlocked && (
+                              <div className="mt-1">
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+                                  Заблокирован
+                                </Badge>
+                                {selectedCase.seller?.blockReason && (
+                                  <p className="text-xs text-red-600 mt-1 truncate">{selectedCase.seller.blockReason}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Товар</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center space-x-3">
+                        <img 
+                          src={selectedCase.post?.image || "/placeholder.svg"} 
+                          alt={selectedCase.post?.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{selectedCase.post?.name}</p>
+                          <p className="text-xs text-gray-600">{selectedCase.post?.price} ₽</p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Подозрительное сообщение</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-red-50 border border-red-200 rounded p-3">
+                        <p className="text-sm text-red-800">{selectedCase.messageContent}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {selectedCase.detectedKeywords?.map((keyword: string, index: number) => (
+                            <Badge key={index} variant="outline" className="bg-red-100 text-red-700 text-xs">
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Right Column - Chat Messages */}
+                <div>
+                  <Card className="h-[400px]">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        История чата
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <ScrollArea className="h-[350px] p-4">
+                        {chatMessages && chatMessages.length > 0 ? (
+                          <div className="space-y-3">
+                            {chatMessages.map((message: any) => (
+                              <div key={message._id} className="flex items-start space-x-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={message.sender?.avatar || "/placeholder.svg"} />
+                                  <AvatarFallback className="text-xs">{message.sender?.firstName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs font-medium">{message.sender?.firstName}</span>
+                                    <span className="text-xs text-gray-500">{formatTime(message.createdAt)}</span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 mt-1">{message.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                            <p className="text-sm">Сообщения загружаются...</p>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
 
+              {/* Action Section */}
               <Card>
-                <CardHeader className="pb-2 md:pb-3">
-                  <CardTitle className="text-sm">Контекст товара</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Действия модератора</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-2 md:space-x-3">
-                    <img 
-                      src={selectedCase.post?.image || "/placeholder.svg"} 
-                      alt={selectedCase.post?.name}
-                      className="w-8 h-8 md:w-12 md:h-12 object-cover rounded"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm md:text-base font-medium truncate">{selectedCase.post?.name}</p>
-                      <p className="text-xs md:text-sm text-gray-600">{selectedCase.post?.price} ₽</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2 md:pb-3">
-                  <CardTitle className="text-sm">Статистика</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Предупреждений:</span>
-                      <span className="font-medium ml-2">{selectedCase.totalWarnings}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Создано:</span>
-                      <span className="font-medium ml-2">{formatTime(selectedCase.createdAt)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {selectedCase.status === "pending" && (
-                <Card>
-                  <CardHeader className="pb-2 md:pb-3">
-                    <CardTitle className="text-sm">Действия модератора</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 md:space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Причина действия *</label>
-                      <Textarea
-                        placeholder="Укажите причину принятого решения..."
-                        value={reviewNotes}
-                        onChange={(e) => setReviewNotes(e.target.value)}
-                        rows={3}
-                        className="text-sm"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Заблокировать пользователей:</h4>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Warning Action */}
+                    <Card className="border-yellow-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-yellow-700 flex items-center">
+                          <MessageCircleWarning className="h-4 w-4 mr-2" />
+                          Отправить предупреждение
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Причина предупреждения</label>
+                          <Select value={selectedWarningReason} onValueChange={setSelectedWarningReason}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите причину..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {WARNING_REASONS.map((reason) => (
+                                <SelectItem key={reason.value} value={reason.value}>
+                                  {reason.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button
-                          onClick={() => handleResolveCase(selectedCase._id, "block_buyer")}
-                          disabled={isSubmitting || !reviewNotes.trim()}
-                          className="w-full bg-red-600 hover:bg-red-700 h-8 md:h-10 text-xs md:text-sm"
+                          onClick={handleSendWarning}
+                          disabled={isSubmitting || !selectedWarningReason}
+                          className="w-full bg-yellow-600 hover:bg-yellow-700"
                         >
-                          <Ban className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                          Заблокировать покупателя
+                          <MessageCircleWarning className="h-4 w-4 mr-2" />
+                          Отправить предупреждение
                         </Button>
-                        <Button
-                          onClick={() => handleResolveCase(selectedCase._id, "block_seller")}
-                          disabled={isSubmitting || !reviewNotes.trim()}
-                          className="w-full bg-red-600 hover:bg-red-700 h-8 md:h-10 text-xs md:text-sm"
-                        >
-                          <Ban className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                          Заблокировать продавца
-                        </Button>
-                        <Button
-                          onClick={() => handleResolveCase(selectedCase._id, "block_both")}
-                          disabled={isSubmitting || !reviewNotes.trim()}
-                          className="w-full bg-red-800 hover:bg-red-900 h-8 md:h-10 text-xs md:text-sm"
-                        >
-                          <Ban className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                          Заблокировать обоих
-                        </Button>
-                      </div>
+                      </CardContent>
+                    </Card>
 
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Другие действия:</h4>
+                    {/* Dismiss Action */}
+                    <Card className="border-gray-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-gray-700 flex items-center">
+                          <X className="h-4 w-4 mr-2" />
+                          Отклонить дело
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Причина отклонения</label>
+                          <Select value={selectedDismissReason} onValueChange={setSelectedDismissReason}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите причину..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DISMISS_REASONS.map((reason) => (
+                                <SelectItem key={reason.value} value={reason.value}>
+                                  {reason.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button
-                          onClick={() => handleResolveCase(selectedCase._id, "warning_issued")}
-                          disabled={isSubmitting || !reviewNotes.trim()}
+                          onClick={handleDismissCase}
+                          disabled={isSubmitting || !selectedDismissReason}
                           variant="outline"
-                          className="w-full h-8 md:h-10 text-xs md:text-sm"
+                          className="w-full"
                         >
-                          <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                          Выдать предупреждение
-                        </Button>
-                        <Button
-                          onClick={() => handleResolveCase(selectedCase._id, "dismiss_case")}
-                          disabled={isSubmitting || !reviewNotes.trim()}
-                          variant="outline"
-                          className="w-full h-8 md:h-10 text-xs md:text-sm"
-                        >
-                          <X className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                          <X className="h-4 w-4 mr-2" />
                           Отклонить дело
                         </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      </CardContent>
+                    </Card>
+                  </div>
 
-              {selectedCase.status !== "pending" && (
-                <Card>
-                  <CardHeader className="pb-2 md:pb-3">
-                    <CardTitle className="text-sm">История решения</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {selectedCase.resolvedBy && (
-                        <div className="flex items-center space-x-2 text-sm">
-                          <User className="h-4 w-4 text-gray-500" />
-                          <span>Решено: {selectedCase.resolvedBy.firstName} {selectedCase.resolvedBy.lastName}</span>
+                  {/* Manual Close Case Action - shown when users are blocked */}
+                  {(selectedCase.buyer?.isBlocked || selectedCase.seller?.isBlocked) && selectedCase.status === "pending" && (
+                    <Card className="border-blue-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-blue-700 flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Закрыть дело вручную
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-sm text-gray-600">
+                          {selectedCase.buyer?.isBlocked && selectedCase.seller?.isBlocked
+                            ? "Оба пользователя заблокированы. Дело может быть закрыто."
+                            : selectedCase.buyer?.isBlocked
+                            ? "Покупатель заблокирован. Дело может быть закрыто."
+                            : "Продавец заблокирован. Дело может быть закрыто."
+                          }
+                        </p>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Причина закрытия</label>
+                          <Select value={selectedDismissReason} onValueChange={setSelectedDismissReason}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите причину..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="users_blocked">Пользователи заблокированы</SelectItem>
+                              <SelectItem value="issue_resolved">Проблема решена</SelectItem>
+                              <SelectItem value="manual_review_complete">Ручная проверка завершена</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      )}
-                      {selectedCase.resolvedAt && (
-                        <div className="flex items-center space-x-2 text-sm">
-                          <Calendar className="h-4 w-4 text-gray-500" />
-                          <span>Дата: {formatTime(selectedCase.resolvedAt)}</span>
-                        </div>
-                      )}
-                      {selectedCase.resolution && (
-                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-700">{selectedCase.resolution}</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                        <Button
+                          onClick={handleDismissCase}
+                          disabled={isSubmitting || !selectedDismissReason}
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Закрыть дело
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+
+
+                </CardContent>
+              </Card>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Reason Selection Dialog */}
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Выберите причину блокировки</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Пользователь: <strong>{selectedUserToBlock?.firstName} {selectedUserToBlock?.lastName}</strong>
+            </p>
+            
+            <div className="text-sm text-gray-600 mb-4">
+              Выберите одну из предустановленных причин блокировки:
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {BLOCK_REASONS.map((reason) => (
+                <Button
+                  key={reason.value}
+                  variant={selectedBlockReason === reason.value ? "default" : "outline"}
+                  className={`justify-start h-auto p-4 text-left ${
+                    selectedBlockReason === reason.value 
+                      ? "bg-red-600 text-white border-red-600" 
+                      : "hover:bg-gray-50"
+                  }`}
+                  onClick={() => setSelectedBlockReason(reason.value)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full border-2 ${
+                      selectedBlockReason === reason.value 
+                        ? "bg-white border-white" 
+                        : "border-gray-300"
+                    }`} />
+                    <div>
+                      <div className="font-medium">{reason.label}</div>
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => {
+                setShowBlockDialog(false);
+                setSelectedBlockReason("");
+              }}>
+                Отмена
+              </Button>
+              <Button 
+                onClick={() => handleBlockUser(selectedUserToBlock, selectedBlockReason)}
+                disabled={!selectedBlockReason || isSubmitting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isSubmitting ? "Блокировка..." : "Заблокировать пользователя"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unblock Reason Selection Dialog */}
+      <Dialog open={showUnblockDialog} onOpenChange={setShowUnblockDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Выберите причину разблокировки</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Пользователь: <strong>{selectedUserToUnblock?.name}</strong>
+            </p>
+            
+            <div className="text-sm text-gray-600 mb-4">
+              Выберите одну из предустановленных причин разблокировки:
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {UNBLOCK_REASONS.map((reason) => (
+                <Button
+                  key={reason.value}
+                  variant={selectedUnblockReason === reason.value ? "default" : "outline"}
+                  className={`justify-start h-auto p-4 text-left ${
+                    selectedUnblockReason === reason.value 
+                      ? "bg-green-600 text-white border-green-600" 
+                      : "hover:bg-gray-50"
+                  }`}
+                  onClick={() => setSelectedUnblockReason(reason.value)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full border-2 ${
+                      selectedUnblockReason === reason.value 
+                        ? "bg-white border-white" 
+                        : "border-gray-300"
+                    }`} />
+                    <div>
+                      <div className="font-medium">{reason.label}</div>
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => {
+                setShowUnblockDialog(false);
+                setSelectedUnblockReason("");
+              }}>
+                Отмена
+              </Button>
+              <Button 
+                onClick={handleUnblockConfirm}
+                disabled={!selectedUnblockReason || isSubmitting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSubmitting ? "Разблокировка..." : "Разблокировать пользователя"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

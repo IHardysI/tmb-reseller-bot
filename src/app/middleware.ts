@@ -23,6 +23,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith('/moderation')) {
+    const telegramWebAppData = request.headers.get('sec-fetch-site');
+    const userAgent = request.headers.get('user-agent');
+    
+    const isTelegramWebApp = userAgent && userAgent.includes('TelegramBot');
+    
+    if (!isTelegramWebApp && !request.cookies.has('telegram-auth')) {
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

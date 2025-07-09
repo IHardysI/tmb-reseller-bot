@@ -10,15 +10,15 @@ const SUSPICIOUS_KEYWORDS = {
   direct_payment: [
     "наличные", "наличка", "кэш", "cash", "без комиссии", "без процентов", "напрямую",
     "карта на карту", "сбер", "сбербанк", "альфа", "тинькофф", "втб", "qiwi", "киви",
-    "яндекс деньги", "юмани", "webmoney", "вебмани", "paypal", "пэйпал"
+    "яндекс деньги", "юмани", "webmoney", "вебмани", "paypal", "пэйпал", "переведи на карту"
   ],
   personal_meeting: [
-    "встретимся", "встреча", "лично", "вживую", "приезжай", "заберешь", "самовывоз",
-    "встретиться", "увидимся", "подъехать", "подъезжай", "забрать лично"
+    "встретимся где-то", "встреча в парке", "увидимся лично", "подъехать к дому",
+    "встретиться не в магазине", "приезжай ко мне", "встреча в кафе"
   ],
   bypass_platform: [
-    "минуя сайт", "без сайта", "в обход", "напрямую", "минуя платформу", "без платформы",
-    "не через сайт", "обойдем", "сделаем сами", "без посредников", "мимо сервиса"
+    "минуя сайт", "без сайта", "в обход", "напрямую без платформы", "минуя платформу", "без платформы",
+    "не через сайт", "обойдем сервис", "сделаем без сайта", "без посредников", "мимо сервиса"
   ],
   suspicious_contact: [
     "инста", "instagram", "вк", "vk", "одноклассники", "фейсбук", "facebook", "тикток", "tiktok",
@@ -26,11 +26,28 @@ const SUSPICIOUS_KEYWORDS = {
   ]
 };
 
+// Legitimate business terms that should NOT trigger moderation
+const LEGITIMATE_BUSINESS_TERMS = [
+  "самовывоз", "заберешь", "забрать", "забрать товар", "заберете", "самовывозом",
+  "получить", "получение", "получить товар", "выдача", "выдача товара",
+  "доставка", "доставить", "доставлю", "привезу", "привозу", "курьер",
+  "встреча для передачи", "передача товара", "передам", "получите",
+  "магазин", "торговый центр", "тц", "торговый", "точка выдачи",
+  "адрес выдачи", "место выдачи", "пункт выдачи", "офис",
+  "станция метро", "метро", "остановка", "автобусная остановка"
+];
+
 const RISK_LEVELS = {
-  high: ["наличные", "карта на карту", "без комиссии", "минуя сайт", "в обход", "+7", "8-9"],
-  medium: ["встретимся", "лично", "whatsapp", "telegram", "номер", "почта"],
-  low: ["самовывоз", "заберешь", "инста", "вк"]
+  high: ["наличные", "карта на карту", "без комиссии", "минуя сайт", "в обход", "+7", "8-9", "переведи на карту"],
+  medium: ["whatsapp", "telegram", "watsapp", "вотсап", "ватсап", "телеграм", "телега", "номер", "почта", "встретимся где-то"],
+  low: ["инста", "вк", "skype"]
 };
+
+// Enhanced context-aware terms that require multiple suspicious indicators
+const CONTEXT_REQUIRED_TERMS = [
+  "встретимся", "встреча", "лично", "вживую", "приезжай", "встретиться", 
+  "увидимся", "подъехать", "подъезжай", "напрямую"
+];
 
 interface DetectionResult {
   isSupicious: boolean;
@@ -45,17 +62,39 @@ const analyzeMessage = (content: string): DetectionResult | null => {
   let highestRiskLevel: "low" | "medium" | "high" = "low";
   let primaryWarningType: DetectionResult["warningType"] = "suspicious_contact";
 
+  // First, check if message contains legitimate business terms
+  const hasLegitimateTerms = LEGITIMATE_BUSINESS_TERMS.some(term => 
+    normalizedContent.includes(term.toLowerCase())
+  );
+
+  // If message has legitimate business terms, be more lenient
+  if (hasLegitimateTerms) {
+    // Only flag if there are high-risk indicators combined with legitimate terms
+    const hasHighRiskTerms = RISK_LEVELS.high.some(term => 
+      normalizedContent.includes(term.toLowerCase())
+    );
+    
+    if (!hasHighRiskTerms) {
+      return null; // Don't flag legitimate business communications
+    }
+  }
+
   // Check for suspicious keywords
+  let suspiciousIndicatorCount = 0;
+  
   for (const [category, keywords] of Object.entries(SUSPICIOUS_KEYWORDS)) {
     for (const keyword of keywords) {
       if (normalizedContent.includes(keyword.toLowerCase())) {
         detectedKeywords.push(keyword);
+        suspiciousIndicatorCount++;
         
         // Determine risk level
         if (RISK_LEVELS.high.includes(keyword)) {
           highestRiskLevel = "high";
         } else if (RISK_LEVELS.medium.includes(keyword) && highestRiskLevel !== "high") {
           highestRiskLevel = "medium";
+        } else if (highestRiskLevel === "low") {
+          // Only set to low if no higher risk found
         }
         
         // Set primary warning type
@@ -64,10 +103,11 @@ const analyzeMessage = (content: string): DetectionResult | null => {
     }
   }
 
-  // Additional pattern checks
+  // Enhanced pattern checks
   const phonePattern = /(\+?7|8)[\s\-]?\(?9\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
   if (phonePattern.test(normalizedContent)) {
     detectedKeywords.push("phone_pattern");
+    suspiciousIndicatorCount++;
     highestRiskLevel = "high";
     primaryWarningType = "external_communication";
   }
@@ -76,11 +116,31 @@ const analyzeMessage = (content: string): DetectionResult | null => {
   const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
   if (emailPattern.test(normalizedContent)) {
     detectedKeywords.push("email_pattern");
+    suspiciousIndicatorCount++;
     if (highestRiskLevel !== "high") highestRiskLevel = "medium";
     primaryWarningType = "external_communication";
   }
 
-  if (detectedKeywords.length === 0) {
+  // Check for context-required terms
+  const hasContextRequiredTerms = CONTEXT_REQUIRED_TERMS.some(term =>
+    normalizedContent.includes(term.toLowerCase())
+  );
+
+  if (hasContextRequiredTerms && suspiciousIndicatorCount < 2 && !hasLegitimateTerms) {
+    // Context-required terms need additional suspicious indicators
+    // or should be combined with other suspicious activity
+    const hasOtherSuspiciousTerms = detectedKeywords.some(keyword => 
+      !CONTEXT_REQUIRED_TERMS.includes(keyword) && keyword !== "phone_pattern" && keyword !== "email_pattern"
+    );
+
+    if (!hasOtherSuspiciousTerms && highestRiskLevel === "low") {
+      return null; // Don't flag isolated context-required terms
+    }
+  }
+
+  // Only create moderation cases for medium/high risk or multiple suspicious indicators
+  if (detectedKeywords.length === 0 || 
+      (highestRiskLevel === "low" && suspiciousIndicatorCount < 2)) {
     return null;
   }
 
@@ -107,13 +167,36 @@ export const createModerationCase = mutation({
       return null;
     }
 
-    // Check if case already exists for this message
+    // Check if case already exists for this CHAT (not message)
     const existingCase = await ctx.db
       .query("moderationCases")
-      .filter(q => q.eq(q.field("messageId"), args.messageId))
+      .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
+      .filter(q => q.eq(q.field("status"), "pending"))
       .first();
 
     if (existingCase) {
+      // Update existing case with new message content and higher risk level if needed
+      const updates: any = {
+        messageContent: args.messageContent,
+        updatedAt: Date.now(),
+      };
+      
+      // Update risk level if new message has higher risk
+      if (analysis.riskLevel === "high" && existingCase.riskLevel !== "high") {
+        updates.riskLevel = "high";
+      } else if (analysis.riskLevel === "medium" && existingCase.riskLevel === "low") {
+        updates.riskLevel = "medium";
+      }
+      
+      // Add new keywords if they're not already present
+      const newKeywords = analysis.detectedKeywords.filter(keyword => 
+        !existingCase.detectedKeywords.includes(keyword)
+      );
+      if (newKeywords.length > 0) {
+        updates.detectedKeywords = [...existingCase.detectedKeywords, ...newKeywords];
+      }
+      
+      await ctx.db.patch(existingCase._id, updates);
       return existingCase._id;
     }
 
@@ -199,6 +282,9 @@ export const getModerationCases = query({
             lastName: buyer.lastName,
             username: buyer.username,
             avatar: buyerAvatar,
+            isBlocked: buyer.isBlocked || false,
+            blockReason: buyer.blockReason || null,
+            blockedAt: buyer.blockedAt || null,
           } : null,
           seller: seller ? {
             id: seller._id,
@@ -206,6 +292,9 @@ export const getModerationCases = query({
             lastName: seller.lastName,
             username: seller.username,
             avatar: sellerAvatar,
+            isBlocked: seller.isBlocked || false,
+            blockReason: seller.blockReason || null,
+            blockedAt: seller.blockedAt || null,
           } : null,
           post: post ? {
             id: post._id,
@@ -387,5 +476,212 @@ export const getModerationStats = query({
     };
 
     return stats;
+  },
+});
+
+export const getChatMessages = query({
+  args: {
+    chatId: v.id("chats"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
+      .order("desc")
+      .take(args.limit || 50);
+
+    const messagesWithUsers = await Promise.all(
+      messages.map(async (message) => {
+        const sender = await ctx.db.get(message.senderId);
+        
+        // Get avatar URL
+        let senderAvatar = "/placeholder.svg";
+        if (sender?.avatarStorageId) {
+          try {
+            const url = await ctx.storage.getUrl(sender.avatarStorageId);
+            if (url) senderAvatar = url;
+          } catch (error) {
+            console.log("Error generating sender avatar URL:", error);
+          }
+        }
+
+        return {
+          ...message,
+          sender: message.type === "system" ? {
+            id: "system",
+            firstName: "Система",
+            lastName: "Модерации",
+            username: "system",
+            avatar: "/placeholder.svg",
+          } : sender ? {
+            id: sender._id,
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            username: sender.username,
+            avatar: senderAvatar,
+          } : null,
+        };
+      })
+    );
+
+    return messagesWithUsers.reverse(); // Return in chronological order
+  },
+});
+
+export const sendWarningMessage = mutation({
+  args: {
+    caseId: v.id("moderationCases"),
+    moderatorId: v.id("users"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const moderationCase = await ctx.db.get(args.caseId);
+    if (!moderationCase) {
+      throw new Error("Moderation case not found");
+    }
+
+    const warningMessage = `⚠️ ПРЕДУПРЕЖДЕНИЕ ОТ МОДЕРАЦИИ ⚠️
+
+Обнаружена попытка обхода платформы в вашем диалоге.
+
+Причина: ${args.reason}
+
+Напоминаем, что все сделки должны проходить через нашу платформу для обеспечения безопасности всех участников. 
+
+Повторные нарушения могут привести к блокировке аккаунта.
+
+С уважением, команда модерации`;
+
+    // Send warning message to chat as system message
+    await ctx.db.insert("messages", {
+      chatId: moderationCase.chatId,
+      senderId: args.moderatorId,
+      content: warningMessage,
+      type: "system",
+      createdAt: Date.now(),
+      isRead: false,
+    });
+
+    // Clear hidden status for both users so they see the warning
+    await ctx.db.patch(moderationCase.chatId, {
+      hiddenFor: [],
+    });
+
+    // Update the moderation case
+    await ctx.db.patch(args.caseId, {
+      status: "resolved",
+      resolvedBy: args.moderatorId,
+      resolvedAt: Date.now(),
+      actionType: "warning_issued",
+      reason: args.reason,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+export const blockUserPlatformWide = mutation({
+  args: {
+    userId: v.id("users"),
+    moderatorId: v.id("users"),
+    reason: v.string(),
+    caseId: v.optional(v.id("moderationCases")),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is already blocked
+    const existingBlock = await ctx.db
+      .query("userBlocks")
+      .filter(q => q.eq(q.field("blockedUserId"), args.userId))
+      .first();
+
+    if (existingBlock) {
+      throw new Error("User is already blocked");
+    }
+
+    // Check user's current status
+    const user = await ctx.db.get(args.userId);
+    if (user?.isBlocked) {
+      throw new Error("User is already blocked");
+    }
+
+    // Add user to blocked list
+    await ctx.db.insert("userBlocks", {
+      blockerId: args.moderatorId,
+      blockedUserId: args.userId,
+      reason: args.reason,
+      createdAt: Date.now(),
+    });
+
+    // Update user's account to mark as blocked
+    await ctx.db.patch(args.userId, {
+      isBlocked: true,
+      blockedAt: Date.now(),
+      blockedBy: args.moderatorId,
+      blockReason: args.reason,
+    });
+
+    // Don't auto-close the case - let moderator manually close it
+    // Cases remain open so moderator can review and manually close
+
+    return { success: true };
+  },
+});
+
+export const unblockUserPlatformWide = mutation({
+  args: {
+    userId: v.id("users"),
+    moderatorId: v.id("users"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is actually blocked
+    const user = await ctx.db.get(args.userId);
+    if (!user?.isBlocked) {
+      throw new Error("User is not blocked");
+    }
+
+    // Remove from blocked list
+    const blockRecord = await ctx.db
+      .query("userBlocks")
+      .filter(q => q.eq(q.field("blockedUserId"), args.userId))
+      .first();
+
+    if (!blockRecord) {
+      throw new Error("Block record not found");
+    }
+
+    await ctx.db.delete(blockRecord._id);
+
+    // Update user's account to unblock
+    await ctx.db.patch(args.userId, {
+      isBlocked: false,
+      unblockedAt: Date.now(),
+      unblockedBy: args.moderatorId,
+      unblockReason: args.reason,
+    });
+
+    return { success: true };
+  },
+});
+
+export const checkUserBlockStatus = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    const blockRecord = await ctx.db
+      .query("userBlocks")
+      .filter(q => q.eq(q.field("blockedUserId"), args.userId))
+      .first();
+
+    return {
+      isBlocked: user?.isBlocked || false,
+      blockReason: user?.blockReason || null,
+      blockedAt: user?.blockedAt || null,
+      hasBlockRecord: !!blockRecord,
+    };
   },
 }); 

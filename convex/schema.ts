@@ -23,7 +23,17 @@ export default defineSchema({
     verificationStatus: v.optional(v.union(v.literal("verified"), v.literal("pending"), v.literal("unverified"))),
     avatarStorageId: v.optional(v.id("_storage")),
     lastOnline: v.optional(v.number()),
-  }).index("by_telegram_id", ["telegramId"]),
+    isBlocked: v.optional(v.boolean()),
+    blockedAt: v.optional(v.number()),
+    blockedBy: v.optional(v.id("users")),
+    blockReason: v.optional(v.string()),
+    unblockedAt: v.optional(v.number()),
+    unblockedBy: v.optional(v.id("users")),
+    unblockReason: v.optional(v.string()),
+    role: v.optional(v.union(v.literal("admin"), v.literal("user"))),
+  }).index("by_telegram_id", ["telegramId"])
+    .index("by_blocked", ["isBlocked"])
+    .index("by_role", ["role"]),
   
   brands: defineTable({
     name: v.string(),
@@ -112,17 +122,21 @@ export default defineSchema({
     chatId: v.id("chats"),
     senderId: v.id("users"),
     content: v.string(),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("file")),
-    fileName: v.optional(v.string()),
-    fileSize: v.optional(v.number()),
-    fileStorageId: v.optional(v.id("_storage")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("file"), v.literal("system")),
     createdAt: v.number(),
     isRead: v.boolean(),
     readAt: v.optional(v.number()),
-  }).index("by_chat", ["chatId"])
+    imageStorageId: v.optional(v.id("_storage")),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    editedAt: v.optional(v.number()),
+    originalContent: v.optional(v.string()),
+  })
+    .index("by_chat", ["chatId"])
     .index("by_sender", ["senderId"])
-    .index("by_chat_created", ["chatId", "createdAt"])
-    .index("by_unread", ["isRead"]),
+    .index("by_created_at", ["createdAt"])
+    .index("by_chat_created", ["chatId", "createdAt"]),
 
   userBlocks: defineTable({
     blockerId: v.id("users"),

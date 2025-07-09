@@ -10,6 +10,9 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
+import { useQuery } from "convex/react"
+import { api } from "../../../../convex/_generated/api"
+import { useTelegramUser } from "@/hooks/useTelegramUser"
 
 interface HeaderProps {
   title: string
@@ -19,6 +22,21 @@ interface HeaderProps {
 export default function Header({ title, subtitle }: HeaderProps) {
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
+  const { userId } = useTelegramUser()
+  
+  // Get notification counts
+  const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" })
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    userId ? { telegramId: userId } : "skip"
+  )
+  const userChats = useQuery(api.chats.getUserChats, 
+    currentUser ? { userId: currentUser._id } : "skip"
+  )
+  
+  const activeCasesCount = activeCases?.length || 0
+  const unreadMessagesCount = userChats?.reduce((total, chat) => {
+    return total + (chat.unreadCount || 0)
+  }, 0) || 0
   
   return (
     <div className="bg-white border-b sticky top-0 z-40">
@@ -58,15 +76,25 @@ export default function Header({ title, subtitle }: HeaderProps) {
                 </Button>
               </Link>
               <Link href="/messages">
-                <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200">
+                <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 text-gray-700 hover:text-blue-700 shadow-sm transition-all duration-200 relative">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   <span className="text-sm">Сообщения</span>
+                  {unreadMessagesCount > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center border-2 border-white">
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
               <Link href="/moderation">
-                <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200">
+                <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200 relative">
                   <Shield className="h-4 w-4 mr-2" />
                   <span className="text-sm">Модерация</span>
+                  {activeCasesCount > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center border-2 border-white">
+                      {activeCasesCount > 99 ? '99+' : activeCasesCount}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             </div>

@@ -31,6 +31,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
         router.push('/auth/login');
       } else if (existingUser && !existingUser.onboardingCompleted) {
         router.push('/auth/login');
+      } else if (existingUser && existingUser.isBlocked) {
+        router.push('/blocked');
       }
     }
   }, [mounted, isUserAvailable, userId, existingUser, router]);
@@ -53,6 +55,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!existingUser.onboardingCompleted) {
     return <FullScreenLoader text="Завершите регистрацию..." />;
+  }
+
+  if (existingUser.isBlocked) {
+    return <FullScreenLoader text="Аккаунт заблокирован..." />;
   }
 
   return <>{children}</>;

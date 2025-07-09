@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, Send, ImageIcon, FileText, X, Download, Eye, Award, MoreVertical, Camera, File, ChevronDown, Check, Edit, Trash2 } from "lucide-react"
+import { ArrowLeft, Send, ImageIcon, FileText, X, Download, Eye, Award, MoreVertical, Camera, File, ChevronDown, Check, Edit, Trash2, Shield } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ComplaintDialog } from "@/components/ui/complaint-dialog"
@@ -27,7 +27,7 @@ interface Message {
   content: string
   senderId: string
   timestamp: string
-  type: "text" | "image" | "file"
+  type: "text" | "image" | "file" | "system"
   fileName?: string
   fileSize?: number
   fileUrl?: string
@@ -629,6 +629,32 @@ export default function ChatPage({ params }: ChatPageProps) {
         {chatData.messages.map((message, index) => {
           const isCurrentUser = message.senderId === "current-user"
           const isEditing = editingMessage?.id === message.id
+          
+          // System message - centered, special styling
+          if (message.type === "system") {
+            return (
+              <div key={message.id} className="flex justify-center my-4">
+                <div className="max-w-md bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <Shield className="h-5 w-5 text-yellow-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-yellow-800 whitespace-pre-line">
+                        {message.content}
+                      </div>
+                      <div className="text-xs text-yellow-600 mt-2">
+                        {formatTime(message.timestamp)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          
           return (
             <div key={message.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-xs lg:max-w-md xl:max-w-lg ${isCurrentUser ? "order-2" : "order-1"}`}>

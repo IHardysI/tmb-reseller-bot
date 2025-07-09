@@ -189,4 +189,71 @@ export const getUserById = query({
       avatar: avatar,
     };
   },
+});
+
+export const setUserRole = mutation({
+  args: {
+    telegramId: v.number(),
+    role: v.union(v.literal("admin"), v.literal("user")),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("telegramId"), args.telegramId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      role: args.role,
+    });
+
+    return { success: true };
+  },
+});
+
+export const checkUserRole = query({
+  args: {
+    telegramId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("telegramId"), args.telegramId))
+      .first();
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      role: user.role || "user",
+      isAdmin: user.role === "admin",
+    };
+  },
+});
+
+export const getCurrentUserRole = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("telegramId"), identity.telegramId))
+      .first();
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      role: user.role || "user",
+      isAdmin: user.role === "admin",
+    };
+  },
 }); 

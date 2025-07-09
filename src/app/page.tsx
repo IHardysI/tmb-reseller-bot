@@ -245,8 +245,6 @@ function MarketplaceContent() {
                   <SelectItem value="ai-rating">По оценке ИИ</SelectItem>
                 </SelectContent>
               </Select>
-
-              <SidebarTrigger />
             </div>
 
             {/* Mobile Layout */}
