@@ -624,7 +624,7 @@ export default function ChatPage({ params }: ChatPageProps) {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative pb-20"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative"
       >
         {chatData.messages.map((message, index) => {
           const isCurrentUser = message.senderId === "current-user"
