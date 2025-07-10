@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import SidebarLayout from "@/components/SidebarLayout"
 import { useUserStore } from '@/stores/userStore'
+import { OptimizedAuthGuard } from '@/components/OptimizedAuthGuard'
 
 interface OptimizedClientLayoutProps {
   children: React.ReactNode
@@ -21,8 +22,10 @@ export default function OptimizedClientLayout({ children }: OptimizedClientLayou
   }
 
   return (
-    <SidebarLayout>
-      {children}
-    </SidebarLayout>
+    <OptimizedAuthGuard>
+      <SidebarLayout>
+        {children}
+      </SidebarLayout>
+    </OptimizedAuthGuard>
   )
 } 

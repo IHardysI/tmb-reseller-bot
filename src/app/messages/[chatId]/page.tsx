@@ -542,7 +542,7 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="bg-white border-b px-4 py-3 flex items-center justify-between flex-shrink-0 sticky top-0 z-50">
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"

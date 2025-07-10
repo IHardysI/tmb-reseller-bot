@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useUserStore } from '@/stores/userStore'
 import { UserInitializer } from './UserInitializer'
 import { FullScreenLoader } from '@/components/ui/loader'
@@ -12,6 +12,7 @@ interface OptimizedAuthGuardProps {
 
 export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { 
     telegramUser, 
     userData, 
@@ -39,7 +40,9 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
       }
 
       if (isUserBlocked()) {
-        router.push('/blocked')
+        if (pathname !== '/blocked') {
+          router.push('/blocked')
+        }
         return
       }
     }
@@ -49,6 +52,7 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
     telegramUser, 
     userData, 
     router, 
+    pathname,
     isUserAvailable, 
     isOnboardingCompleted, 
     isUserBlocked
@@ -91,10 +95,19 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
   }
 
   if (isUserBlocked()) {
+    if (pathname !== '/blocked') {
+      router.push('/blocked')
+      return (
+        <>
+          <UserInitializer />
+          <FullScreenLoader text="Аккаунт заблокирован..." />
+        </>
+      )
+    }
     return (
       <>
         <UserInitializer />
-        <FullScreenLoader text="Аккаунт заблокирован..." />
+        {children}
       </>
     )
   }
