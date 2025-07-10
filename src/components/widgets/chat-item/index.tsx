@@ -39,7 +39,6 @@ interface ChatItemProps {
   onDelete: () => void
   onBlock: () => void
   onReport: () => void
-  onUserProfileClick: (event: React.MouseEvent) => void
 }
 
 export default function ChatItem({ 
@@ -55,8 +54,7 @@ export default function ChatItem({
   onClick,
   onDelete,
   onBlock,
-  onReport,
-  onUserProfileClick
+  onReport
 }: ChatItemProps) {
   const getTrustColor = (trust: string) => {
     const colors = {
@@ -211,10 +209,7 @@ export default function ChatItem({
 
                               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
-                  <button
-                    onClick={onUserProfileClick}
-                    className="flex items-center space-x-2 hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors"
-                  >
+                  <div className="flex items-center space-x-2">
                     <div className="relative">
                       <Avatar className="h-6 w-6 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md">
                         <AvatarImage src={otherParticipant.avatar || "/placeholder.svg"} />
@@ -228,7 +223,7 @@ export default function ChatItem({
                       <span className="text-xs font-medium text-gray-700 truncate">{otherParticipant.name}</span>
                       <span className="text-xs text-gray-500 truncate">{formatLastOnline(otherParticipant.isOnline, otherParticipant.lastOnline)}</span>
                     </div>
-                  </button>
+                  </div>
                 </div>
               </div>
 

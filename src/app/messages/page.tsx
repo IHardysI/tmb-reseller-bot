@@ -76,10 +76,7 @@ export default function MessagesPage() {
     window.location.href = `/messages/${chatId}`
   }
 
-  const handleUserProfileClick = (userId: string, event: React.MouseEvent) => {
-    event.stopPropagation()
-    window.location.href = `/profile/${userId}`
-  }
+
 
   const handleDeleteChat = async (chatId: string) => {
     if (!currentUser) return
@@ -263,7 +260,6 @@ export default function MessagesPage() {
                     onDelete={() => setDeleteDialog({ open: true, chatId: chat.id })}
                     onBlock={() => handleBlockUser(chat.id)}
                     onReport={() => handleReportUser(chat.id)}
-                    onUserProfileClick={(event) => handleUserProfileClick(chat.otherParticipant.id, event)}
                   />
               ))}
             </div>

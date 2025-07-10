@@ -77,7 +77,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                   <MessageCircle className="h-4 w-4 mr-2" />
                   <span className="text-sm">Сообщения</span>
                   {unreadMessagesCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center border-2 border-white">
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center border-2 border-white">
                       {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                     </Badge>
                   )}

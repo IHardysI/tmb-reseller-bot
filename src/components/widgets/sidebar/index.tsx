@@ -234,7 +234,7 @@ export function AppSidebar({
               >
                 <MessageCircle className="h-5 w-5" />
                 {unreadMessagesCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs bg-blue-500 text-white flex items-center justify-center border border-white">
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center border border-white">
                     {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                   </Badge>
                 )}
