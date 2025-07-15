@@ -16,7 +16,6 @@ import type {
 import type * as categories from "../categories.js";
 import type * as chats from "../chats.js";
 import type * as complaints from "../complaints.js";
-import type * as http from "../http.js";
 import type * as moderation from "../moderation.js";
 import type * as posts from "../posts.js";
 import type * as userBlocks from "../userBlocks.js";
@@ -34,7 +33,6 @@ declare const fullApi: ApiFromModules<{
   categories: typeof categories;
   chats: typeof chats;
   complaints: typeof complaints;
-  http: typeof http;
   moderation: typeof moderation;
   posts: typeof posts;
   userBlocks: typeof userBlocks;

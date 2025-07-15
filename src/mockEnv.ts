@@ -56,7 +56,8 @@ export async function mockEnv(): Promise<void> {
               last_name: 'User',
               username: 'testuser',
               language_code: 'en',
-              is_premium: false
+              is_premium: false,
+              telegramChatId: 123456789
             })],
           ]).toString()],
           ['tgWebAppVersion', '8.4'],

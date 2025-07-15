@@ -216,6 +216,42 @@ export const updateUserChatId = mutation({
   },
 });
 
+export const updateUserChatIdFromFrontend = mutation({
+  args: {
+    telegramId: v.number(),
+    telegramChatId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    console.log(`🔧 updateUserChatIdFromFrontend called with:`, args);
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    console.log(`🔍 User lookup result:`, {
+      found: !!user,
+      userId: user?._id,
+      currentChatId: user?.telegramChatId
+    });
+
+    if (!user) {
+      console.log(`❌ User not found for telegramId: ${args.telegramId}`);
+      return { success: false, error: "User not found" };
+    }
+
+    console.log(`📝 Updating user ${user._id} with chat ID: ${args.telegramChatId}`);
+    
+    await ctx.db.patch(user._id, {
+      telegramChatId: args.telegramChatId,
+    });
+    
+    console.log(`✅ Successfully updated chat ID for user ${args.telegramId}: ${args.telegramChatId}`);
+    return { success: true, userId: user._id };
+  },
+});
+
+
 export const setUserRole = mutation({
   args: {
     telegramId: v.number(),
@@ -280,5 +316,20 @@ export const getCurrentUserRole = query({
       role: user.role || "user",
       isAdmin: user.role === "admin",
     };
+  },
+}); 
+
+export const debugUserChatIds = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    
+    return users.map(user => ({
+      telegramId: user.telegramId,
+      telegramChatId: user.telegramChatId,
+      hasChatId: !!user.telegramChatId,
+      firstName: user.firstName,
+      lastName: user.lastName
+    }));
   },
 }); 

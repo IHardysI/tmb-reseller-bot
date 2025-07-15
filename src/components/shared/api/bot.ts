@@ -13,50 +13,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, async (msg: any) => {
   const chatId = msg.chat.id;
-  const telegramId = msg.from?.id;
   const firstName = msg.from?.first_name;
-  
-  try {
-    const convexUrl = process.env.CONVEX_DEPLOYMENT || 'http://localhost:8000';
-    let apiUrl;
-    
-    if (convexUrl.startsWith('http')) {
-      apiUrl = convexUrl;
-    } else if (convexUrl.includes(':')) {
-      // Handle dev:deployment format
-      const parts = convexUrl.split(':');
-      apiUrl = `https://${parts[1]}.convex.cloud`;
-    } else {
-      apiUrl = `https://${convexUrl}.convex.cloud`;
-    }
-    
-    console.log(`🔗 Attempting to update chat ID for user ${telegramId} at ${apiUrl}`);
-    
-    const response = await fetch(`${apiUrl}/api/updateUserChatId`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        telegramId: telegramId,
-        telegramChatId: chatId,
-      }),
-    });
-
-    console.log(`📥 Response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to update user chat ID:', errorText);
-      console.error('Response status:', response.status);
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-    } else {
-      const result = await response.json();
-      console.log(`✅ Updated chat ID for user ${telegramId}: ${chatId}`, result);
-    }
-  } catch (error) {
-    console.error('Error updating user chat ID:', error);
-  }
   
   bot.sendMessage(chatId, `👋 Hello ${firstName}! Welcome to Peer Swap!\n\nClick the button below to open the app:`, {
     reply_markup: {
@@ -86,8 +43,6 @@ bot.on('polling_error', (error: any) => {
 bot.on('error', (error: any) => {
   console.error('Bot error:', error);
 });
-
-
 
 console.log('🤖 Bot is running...');
 console.log('📱 Mini App URL:', appUrl);
