@@ -374,16 +374,32 @@ export const sendMessage = mutation({
       const post = await ctx.db.get(chat.postId);
 
       if (receiver?.telegramChatId && sender && post) {
-        const messagePreview = args.content.length > 50 ? args.content.substring(0, 50) + "..." : args.content;
-        const senderName = sender.firstName + (sender.lastName ? ` ${sender.lastName}` : "");
+        // Check if user is currently online (active in app) - don't send notification if they are
+        const now = Date.now();
+        const lastOnline = receiver.lastOnline || 0;
+        const timeDiff = now - lastOnline;
+        const isCurrentlyOnline = timeDiff <= 300000; // 5 minutes = online
         
-        // Send notification via Convex function
-        await ctx.runMutation(api.chats.sendTelegramNotification, {
-          telegramChatId: receiver.telegramChatId,
-          itemName: post.name,
-          messagePreview: messagePreview,
-          senderName: senderName,
-        });
+        if (!isCurrentlyOnline) {
+          const messagePreview = args.content.length > 50 ? args.content.substring(0, 50) + "..." : args.content;
+          const senderName = sender.firstName + (sender.lastName ? ` ${sender.lastName}` : "");
+          
+          // Send notification via Convex function
+          const result = await ctx.runMutation(api.chats.sendTelegramNotification, {
+            telegramChatId: receiver.telegramChatId,
+            itemName: post.name,
+            messagePreview: messagePreview,
+            senderName: senderName,
+          });
+          
+          if (result?.success) {
+            console.log(`✅ Notification sent to user ${receiver.telegramId} for chat ${args.chatId}`);
+          } else {
+            console.error(`❌ Failed to send notification:`, result?.error);
+          }
+        } else {
+          console.log(`📱 User ${receiver.telegramId} is currently online, skipping notification`);
+        }
       }
     } catch (error) {
       console.error("Error sending notification:", error);

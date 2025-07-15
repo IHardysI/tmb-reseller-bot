@@ -233,6 +233,11 @@ export default function ChatPage({ params }: ChatPageProps) {
         setAttachedFiles([])
         setShowAttachmentOptions(false)
         setTextareaHeight(20)
+        
+        // Immediately scroll to bottom after sending message
+        setTimeout(() => {
+          scrollToBottom()
+        }, 100)
       } catch (error) {
         console.error("Error sending message:", error)
       } finally {
@@ -442,9 +447,10 @@ export default function ChatPage({ params }: ChatPageProps) {
         setNewMessagesCount(prev => prev + newMessages)
       }
       
-      // Only auto-scroll if the last message is from current user
+      // Always auto-scroll if the last message is from current user (they just sent a message)
       if (lastMsg.senderId === currentUser._id) {
         scrollToBottom()
+        setNewMessagesCount(0) // Reset counter when user sends message
       }
     }
   }, [chatData?.messages, currentUser])
