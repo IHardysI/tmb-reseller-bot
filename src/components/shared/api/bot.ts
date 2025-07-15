@@ -17,7 +17,9 @@ bot.onText(/\/start/, async (msg: any) => {
   const firstName = msg.from?.first_name;
   
   try {
-    const convexUrl = process.env.CONVEX_URL || 'http://localhost:8000';
+    const convexUrl = process.env.CONVEX_DEPLOYMENT || 'http://localhost:8000';
+    console.log(`🔗 Attempting to update chat ID for user ${telegramId} at ${convexUrl}`);
+    
     const response = await fetch(`${convexUrl}/api/updateUserChatId`, {
       method: 'POST',
       headers: {
@@ -29,10 +31,14 @@ bot.onText(/\/start/, async (msg: any) => {
       }),
     });
 
+    console.log(`📥 Response status: ${response.status}`);
+
     if (!response.ok) {
-      console.error('Failed to update user chat ID');
+      const errorText = await response.text();
+      console.error('Failed to update user chat ID:', errorText);
     } else {
-      console.log(`✅ Updated chat ID for user ${telegramId}: ${chatId}`);
+      const result = await response.json();
+      console.log(`✅ Updated chat ID for user ${telegramId}: ${chatId}`, result);
     }
   } catch (error) {
     console.error('Error updating user chat ID:', error);
@@ -57,6 +63,14 @@ bot.on('message', (msg: any) => {
   if (text && !text.startsWith('/')) {
     bot.sendMessage(chatId, 'Use /start to open the app!');
   }
+});
+
+bot.on('polling_error', (error: any) => {
+  console.error('Bot polling error:', error);
+});
+
+bot.on('error', (error: any) => {
+  console.error('Bot error:', error);
 });
 
 

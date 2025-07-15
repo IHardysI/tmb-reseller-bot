@@ -368,10 +368,21 @@ export const sendMessage = mutation({
 
     // Send notification to the receiver
     try {
+      console.log(`🔍 Starting notification process for chat ${args.chatId}`);
       const receiverId = chat.buyerId === args.senderId ? chat.sellerId : chat.buyerId;
       const sender = await ctx.db.get(args.senderId);
       const receiver = await ctx.db.get(receiverId);
       const post = await ctx.db.get(chat.postId);
+
+      console.log(`📊 Notification debug info:`, {
+        receiverId: receiverId,
+        senderId: args.senderId,
+        receiverHasChatId: !!receiver?.telegramChatId,
+        receiverChatId: receiver?.telegramChatId,
+        senderExists: !!sender,
+        postExists: !!post,
+        postName: post?.name
+      });
 
       if (receiver?.telegramChatId && sender && post) {
         // Check if user is currently online (active in app) - don't send notification if they are
@@ -380,9 +391,24 @@ export const sendMessage = mutation({
         const timeDiff = now - lastOnline;
         const isCurrentlyOnline = timeDiff <= 300000; // 5 minutes = online
         
+        console.log(`⏰ Online status check:`, {
+          now,
+          lastOnline,
+          timeDiff,
+          isCurrentlyOnline,
+          receiverTelegramId: receiver.telegramId
+        });
+        
         if (!isCurrentlyOnline) {
           const messagePreview = args.content.length > 50 ? args.content.substring(0, 50) + "..." : args.content;
           const senderName = sender.firstName + (sender.lastName ? ` ${sender.lastName}` : "");
+          
+          console.log(`📤 Attempting to send notification:`, {
+            telegramChatId: receiver.telegramChatId,
+            itemName: post.name,
+            messagePreview,
+            senderName
+          });
           
           // Send notification via Convex function
           const result = await ctx.runMutation(api.chats.sendTelegramNotification, {
@@ -392,6 +418,8 @@ export const sendMessage = mutation({
             senderName: senderName,
           });
           
+          console.log(`📨 Notification result:`, result);
+          
           if (result?.success) {
             console.log(`✅ Notification sent to user ${receiver.telegramId} for chat ${args.chatId}`);
           } else {
@@ -400,6 +428,12 @@ export const sendMessage = mutation({
         } else {
           console.log(`📱 User ${receiver.telegramId} is currently online, skipping notification`);
         }
+      } else {
+        console.log(`⚠️ Missing data for notification:`, {
+          receiverHasChatId: !!receiver?.telegramChatId,
+          senderExists: !!sender,
+          postExists: !!post
+        });
       }
     } catch (error) {
       console.error("Error sending notification:", error);
@@ -574,9 +608,18 @@ export const sendTelegramNotification = mutation({
     senderName: v.string(),
   },
   handler: async (ctx, args) => {
+    console.log(`🚀 sendTelegramNotification called with:`, args);
+    
     try {
       const botToken = process.env.BOT_TOKEN;
       const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+      console.log(`🔧 Environment check:`, {
+        hasBotToken: !!botToken,
+        hasAppUrl: !!appUrl,
+        botTokenLength: botToken?.length,
+        appUrl: appUrl
+      });
 
       if (!botToken || !appUrl) {
         console.error("Missing BOT_TOKEN or NEXT_PUBLIC_APP_URL environment variables");
@@ -585,30 +628,41 @@ export const sendTelegramNotification = mutation({
 
       const notificationText = `💬 Новое сообщение в чате "${args.itemName}"\n\n👤 От: ${args.senderName}\n💭 ${args.messagePreview}\n\n📱 Откройте приложение, чтобы ответить`;
 
+      console.log(`📝 Notification text:`, notificationText);
+
+      const requestBody = {
+        chat_id: args.telegramChatId,
+        text: notificationText,
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: "📱 Открыть чат",
+              web_app: { url: `${appUrl}/messages` }
+            }
+          ]]
+        }
+      };
+
+      console.log(`📤 Sending request to Telegram API:`, requestBody);
+
       const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          chat_id: args.telegramChatId,
-          text: notificationText,
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: "📱 Открыть чат",
-                web_app: { url: `${appUrl}/messages` }
-              }
-            ]]
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log(`📥 Telegram API response status:`, response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Telegram API error:", errorData);
         return { success: false, error: "Telegram API error" };
       }
+
+      const responseData = await response.json();
+      console.log(`📥 Telegram API response data:`, responseData);
 
       console.log(`✅ Notification sent to chat ${args.telegramChatId} for item "${args.itemName}"`);
       return { success: true };
