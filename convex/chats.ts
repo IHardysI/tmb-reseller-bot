@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { api } from "./_generated/api";
 
 const checkMessageForSuspiciousContent = async (ctx: any, messageId: any, chatId: any, senderId: any, receiverId: any, content: string) => {
@@ -389,7 +389,7 @@ export const sendMessage = mutation({
         const now = Date.now();
         const lastOnline = receiver.lastOnline || 0;
         const timeDiff = now - lastOnline;
-        const isCurrentlyOnline = timeDiff <= 300000; // 5 minutes = online
+        const isCurrentlyOnline = timeDiff <= 60000; // 1 minute = online
         
         console.log(`⏰ Online status check:`, {
           now,
@@ -410,21 +410,15 @@ export const sendMessage = mutation({
             senderName
           });
           
-          // Send notification via Convex function
-          const result = await ctx.runMutation(api.chats.sendTelegramNotification, {
+          // Send notification via Convex action
+          const result = await ctx.scheduler.runAfter(0, api.chats.sendTelegramNotificationAction, {
             telegramChatId: receiver.telegramChatId,
             itemName: post.name,
             messagePreview: messagePreview,
             senderName: senderName,
           });
           
-          console.log(`📨 Notification result:`, result);
-          
-          if (result?.success) {
-            console.log(`✅ Notification sent to user ${receiver.telegramId} for chat ${args.chatId}`);
-          } else {
-            console.error(`❌ Failed to send notification:`, result?.error);
-          }
+          console.log(`📨 Notification scheduled:`, result);
         } else {
           console.log(`📱 User ${receiver.telegramId} is currently online, skipping notification`);
         }
@@ -600,7 +594,7 @@ export const getMessageReadStatus = query({
   },
 });
 
-export const sendTelegramNotification = mutation({
+export const sendTelegramNotificationAction = action({
   args: {
     telegramChatId: v.number(),
     itemName: v.string(),
@@ -608,7 +602,7 @@ export const sendTelegramNotification = mutation({
     senderName: v.string(),
   },
   handler: async (ctx, args) => {
-    console.log(`🚀 sendTelegramNotification called with:`, args);
+    console.log(`🚀 sendTelegramNotificationAction called with:`, args);
     
     try {
       const botToken = process.env.BOT_TOKEN;

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ConvexClientProvider } from './ConvexClientProvider';
 import OptimizedClientLayout from "@/components/OptimizedClientLayout"
 import { CartProvider } from "@/contexts/CartContext"
+import { Toaster } from "@/components/ui/toaster"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,6 +41,7 @@ export default function RootLayout({
             <OptimizedClientLayout>
               {children}
             </OptimizedClientLayout>
+            <Toaster />
           </CartProvider>
         </ConvexClientProvider>
       </body>
