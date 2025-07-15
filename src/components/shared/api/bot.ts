@@ -18,9 +18,21 @@ bot.onText(/\/start/, async (msg: any) => {
   
   try {
     const convexUrl = process.env.CONVEX_DEPLOYMENT || 'http://localhost:8000';
-    console.log(`🔗 Attempting to update chat ID for user ${telegramId} at ${convexUrl}`);
+    let apiUrl;
     
-    const response = await fetch(`${convexUrl}/api/updateUserChatId`, {
+    if (convexUrl.startsWith('http')) {
+      apiUrl = convexUrl;
+    } else if (convexUrl.includes(':')) {
+      // Handle dev:deployment format
+      const parts = convexUrl.split(':');
+      apiUrl = `https://${parts[1]}.convex.cloud`;
+    } else {
+      apiUrl = `https://${convexUrl}.convex.cloud`;
+    }
+    
+    console.log(`🔗 Attempting to update chat ID for user ${telegramId} at ${apiUrl}`);
+    
+    const response = await fetch(`${apiUrl}/api/updateUserChatId`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -36,6 +48,8 @@ bot.onText(/\/start/, async (msg: any) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Failed to update user chat ID:', errorText);
+      console.error('Response status:', response.status);
+      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
     } else {
       const result = await response.json();
       console.log(`✅ Updated chat ID for user ${telegramId}: ${chatId}`, result);
