@@ -366,6 +366,29 @@ export const sendMessage = mutation({
       }
     }
 
+    // Send notification to the receiver
+    try {
+      const receiverId = chat.buyerId === args.senderId ? chat.sellerId : chat.buyerId;
+      const sender = await ctx.db.get(args.senderId);
+      const receiver = await ctx.db.get(receiverId);
+      const post = await ctx.db.get(chat.postId);
+
+      if (receiver?.telegramChatId && sender && post) {
+        const messagePreview = args.content.length > 50 ? args.content.substring(0, 50) + "..." : args.content;
+        const senderName = sender.firstName + (sender.lastName ? ` ${sender.lastName}` : "");
+        
+        // Send notification via Convex function
+        await ctx.runMutation(api.chats.sendTelegramNotification, {
+          telegramChatId: receiver.telegramChatId,
+          itemName: post.name,
+          messagePreview: messagePreview,
+          senderName: senderName,
+        });
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+    }
+
     return messageId;
   },
 });
@@ -524,5 +547,58 @@ export const getMessageReadStatus = query({
     }
 
     return readStatus;
+  },
+});
+
+export const sendTelegramNotification = mutation({
+  args: {
+    telegramChatId: v.number(),
+    itemName: v.string(),
+    messagePreview: v.string(),
+    senderName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const botToken = process.env.BOT_TOKEN;
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+      if (!botToken || !appUrl) {
+        console.error("Missing BOT_TOKEN or NEXT_PUBLIC_APP_URL environment variables");
+        return { success: false, error: "Configuration error" };
+      }
+
+      const notificationText = `💬 Новое сообщение в чате "${args.itemName}"\n\n👤 От: ${args.senderName}\n💭 ${args.messagePreview}\n\n📱 Откройте приложение, чтобы ответить`;
+
+      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: args.telegramChatId,
+          text: notificationText,
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: "📱 Открыть чат",
+                web_app: { url: `${appUrl}/messages` }
+              }
+            ]]
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Telegram API error:", errorData);
+        return { success: false, error: "Telegram API error" };
+      }
+
+      console.log(`✅ Notification sent to chat ${args.telegramChatId} for item "${args.itemName}"`);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      return { success: false, error: "Internal error" };
+    }
   },
 }); 

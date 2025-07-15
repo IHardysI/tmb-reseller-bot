@@ -4,6 +4,7 @@ import { v } from "convex/values";
 export default defineSchema({
   users: defineTable({
     telegramId: v.number(),
+    telegramChatId: v.optional(v.number()),
     firstName: v.string(),
     lastName: v.optional(v.string()),
     username: v.optional(v.string()),

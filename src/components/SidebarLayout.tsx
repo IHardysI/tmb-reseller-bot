@@ -40,26 +40,32 @@ function SidebarContent({ children }: SidebarLayoutProps) {
     }
   }
 
+  const isChatPage = pathname.startsWith("/messages/") && pathname.split("/").length > 2
+
   return (
     <SidebarProvider>
       <AppSidebar {...filters} />
       <div className="flex-1 min-h-screen">
-        {/* Desktop Header */}
-        <div className="hidden md:block">
-          <Header title={getPageTitle(pathname)} />
-        </div>
-        
-        {/* Mobile Header */}
-        <div className="md:hidden bg-white border-b sticky top-0 z-40">
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-bold">{getPageTitle(pathname)}</h1>
-              </div>
-              <SidebarTrigger />
+        {!isChatPage && (
+          <>
+            {/* Desktop Header */}
+            <div className="hidden md:block">
+              <Header title={getPageTitle(pathname)} />
             </div>
-          </div>
-        </div>
+            
+            {/* Mobile Header */}
+            <div className="md:hidden bg-white border-b sticky top-0 z-40">
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-lg font-bold">{getPageTitle(pathname)}</h1>
+                  </div>
+                  <SidebarTrigger />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
         
         {children}
       </div>

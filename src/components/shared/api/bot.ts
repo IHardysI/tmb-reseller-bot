@@ -11,9 +11,32 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
-bot.onText(/\/start/, (msg: any) => {
+bot.onText(/\/start/, async (msg: any) => {
   const chatId = msg.chat.id;
+  const telegramId = msg.from?.id;
   const firstName = msg.from?.first_name;
+  
+  try {
+    const convexUrl = process.env.CONVEX_URL || 'http://localhost:8000';
+    const response = await fetch(`${convexUrl}/api/updateUserChatId`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        telegramId: telegramId,
+        telegramChatId: chatId,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to update user chat ID');
+    } else {
+      console.log(`✅ Updated chat ID for user ${telegramId}: ${chatId}`);
+    }
+  } catch (error) {
+    console.error('Error updating user chat ID:', error);
+  }
   
   bot.sendMessage(chatId, `👋 Hello ${firstName}! Welcome to Peer Swap!\n\nClick the button below to open the app:`, {
     reply_markup: {
@@ -35,6 +58,8 @@ bot.on('message', (msg: any) => {
     bot.sendMessage(chatId, 'Use /start to open the app!');
   }
 });
+
+
 
 console.log('🤖 Bot is running...');
 console.log('📱 Mini App URL:', appUrl);

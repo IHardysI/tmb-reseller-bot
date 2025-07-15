@@ -839,7 +839,7 @@ export default function ChatPage({ params }: ChatPageProps) {
       </div>
 
       {showScrollToBottom && (
-        <div className="fixed bottom-28 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="fixed bottom-28 left-1/2 transform -translate-x-1/2 z-50 md:left-[calc(50%+12rem)]">
           <Button
             onClick={scrollToBottom}
             size="icon"

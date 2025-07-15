@@ -191,6 +191,31 @@ export const getUserById = query({
   },
 });
 
+export const updateUserChatId = mutation({
+  args: {
+    telegramId: v.number(),
+    telegramChatId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    if (!user) {
+      console.log(`User not found for telegramId: ${args.telegramId}`);
+      return null;
+    }
+
+    await ctx.db.patch(user._id, {
+      telegramChatId: args.telegramChatId,
+    });
+    
+    console.log(`Updated chat ID for user ${args.telegramId}: ${args.telegramChatId}`);
+    return user._id;
+  },
+});
+
 export const setUserRole = mutation({
   args: {
     telegramId: v.number(),
