@@ -265,7 +265,7 @@ export default function ModerationPage() {
       return;
     }
 
-    if (!currentUser?._id) {
+    if (!currentUser?.userId) {
       alert("Ошибка: не удалось определить модератора");
       return;
     }
@@ -276,7 +276,7 @@ export default function ModerationPage() {
       const selectedReason = BLOCK_REASONS.find(r => r.value === selectedBlockReason);
       const result = await blockUserMutation({
         userId: user.id,
-        moderatorId: currentUser._id! as any,
+        moderatorId: currentUser.userId as any,
         reason: selectedReason?.label || selectedBlockReason,
         caseId: selectedCase?._id,
       });
@@ -307,7 +307,7 @@ export default function ModerationPage() {
       return;
     }
 
-    if (!currentUser?._id) {
+    if (!currentUser?.userId) {
       alert("Ошибка: не удалось определить модератора");
       return;
     }
@@ -318,7 +318,7 @@ export default function ModerationPage() {
       const selectedReason = WARNING_REASONS.find(r => r.value === selectedWarningReason);
       const result = await sendWarningMutation({
         caseId: selectedCase._id,
-        moderatorId: currentUser._id! as any,
+        moderatorId: currentUser.userId as any,
         reason: selectedReason?.label || selectedWarningReason,
       });
       
@@ -345,7 +345,7 @@ export default function ModerationPage() {
       return;
     }
 
-    if (!currentUser?._id) {
+    if (!currentUser?.userId) {
       alert("Ошибка: не удалось определить модератора");
       return;
     }
@@ -356,7 +356,7 @@ export default function ModerationPage() {
       const selectedReason = DISMISS_REASONS.find(r => r.value === selectedDismissReason);
       const result = await resolveCaseMutation({
         caseId: selectedCase._id,
-        moderatorId: currentUser._id! as any,
+        moderatorId: currentUser.userId as any,
         actionType: "dismiss_case",
         reason: selectedReason?.label || selectedDismissReason,
       });
@@ -384,7 +384,7 @@ export default function ModerationPage() {
   const handleUnblockConfirm = async () => {
     if (!selectedUnblockReason || !selectedUserToUnblock) return;
 
-    if (!currentUser?._id) {
+    if (!currentUser?.userId) {
       alert("Ошибка: не удалось определить модератора");
       return;
     }
@@ -394,7 +394,7 @@ export default function ModerationPage() {
       const selectedReason = UNBLOCK_REASONS.find(r => r.value === selectedUnblockReason);
       await unblockUserMutation({
         userId: selectedUserToUnblock.id,
-        moderatorId: currentUser._id! as any,
+        moderatorId: currentUser.userId as any,
         reason: selectedReason?.label || selectedUnblockReason,
       });
       setShowUnblockDialog(false);

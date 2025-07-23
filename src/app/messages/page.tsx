@@ -64,7 +64,7 @@ export default function MessagesPage() {
   const currentUser = telegramUser.userData
   
   const chats = useQuery(api.chats.getUserChats, 
-    currentUser?._id ? { userId: currentUser._id as any } : "skip"
+    currentUser?.userId ? { userId: currentUser.userId as any } : "skip"
   ) as ChatItemData[] | undefined
 
   const deleteChatMutation = useMutation(api.chats.deleteChat)
@@ -84,7 +84,7 @@ export default function MessagesPage() {
     try {
       await deleteChatMutation({
         chatId: chatId as any,
-        userId: currentUser._id! as any
+        userId: currentUser.userId as any
       })
       setDeleteDialog({ open: false, chatId: null })
     } catch (error) {
@@ -100,7 +100,7 @@ export default function MessagesPage() {
 
     try {
       await blockUserMutation({
-        blockerId: currentUser._id! as any,
+        blockerId: currentUser.userId as any,
         blockedUserId: chat.otherParticipant.id as any,
         reason: "Заблокирован через чат"
       })
@@ -128,7 +128,7 @@ export default function MessagesPage() {
 
     try {
       await createComplaintMutation({
-        complainantId: currentUser._id! as any,
+        complainantId: currentUser.userId as any,
         reportedUserId: complaintDialog.userId as any,
         chatId: complaintDialog.chatId as any,
         category: category as any,
