@@ -81,6 +81,10 @@ export default function UserProfilePage({ params, searchParams }: UserProfilePag
   const viewedUser = useQuery(api.users.getUserById, { userId: userId as Id<"users"> })
   const userPosts = useQuery(api.posts.getUserPostsByUserId, { userId: userId as Id<"users"> })
 
+  // Move hooks before early return
+  const likePost = useMutation(api.posts.likePost)
+  const unlikePost = useMutation(api.posts.unlikePost)
+
   if (!viewedUser || !userPosts) {
     return <PageLoader />
   }
@@ -145,9 +149,6 @@ export default function UserProfilePage({ params, searchParams }: UserProfilePag
     if (!post || !currentUser) return false
     return post.likedBy?.includes(currentUser._id) || false
   }
-
-  const likePost = useMutation(api.posts.likePost)
-  const unlikePost = useMutation(api.posts.unlikePost)
 
   const handleToggleFavorite = async (productId: string) => {
     if (!telegramUser?.userId) return
