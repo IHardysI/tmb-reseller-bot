@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 import {
   Award,
@@ -19,11 +21,28 @@ import {
   Camera,
   Save,
   Star,
+  CreditCard,
+  Plus,
+  Trash2,
+  Shield,
+  Building,
+  User,
+  Calendar,
+  Settings,
+  CheckCircle,
+  Clock,
+  XCircle,
+  DollarSign,
+  BanknoteIcon as Bank,
+  Lock,
+  TrendingUp,
+  Eye,
+  Heart
 } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { Id } from "../../../convex/_generated/dataModel"
-import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser"
+import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { useRouter } from "next/navigation"
 import { OptimizedAuthGuard } from '@/components/OptimizedAuthGuard'
 import Link from "next/link"
@@ -47,61 +66,179 @@ interface UserProfile {
   verificationStatus: "verified" | "pending" | "unverified"
 }
 
+interface SellerInfo {
+  fullName: string
+  bankName: string
+  accountNumber: string
+  iban: string
+  swift: string
+  submittedAt: number
+}
+
 function ProfilePageContent() {
   const router = useRouter()
-  const telegramUser = useOptimizedTelegramUser()
+  const telegramUser = useTelegramUser()
   
-  const currentUser = telegramUser.userData
-  
-  const userPosts = useQuery(
-    api.posts.getUserPosts,
-    telegramUser.userId ? { telegramId: telegramUser.userId } : "skip"
+  const currentUser = useQuery(api.users.getUserByTelegramId, 
+    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
+  )
+  const userPosts = useQuery(api.posts.getUserPosts, 
+    telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
   )
   
-  const likedPosts = useQuery(
-    api.posts.getLikedPosts,
-    telegramUser.userId ? { telegramId: telegramUser.userId } : "skip"
-  )
-  
-  const deletePost = useMutation(api.posts.deletePost)
   const updateUserProfile = useMutation(api.users.updateUserProfile)
-  const generateUploadUrl = useMutation(api.users.generateUploadUrl)
-  const updateUserAvatar = useMutation(api.users.updateUserAvatar)
+  const saveSellerPayoutInfo = useMutation(api.users.saveSellerPayoutInfo)
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
-  
+  const deletePost = useMutation(api.posts.deletePost)
+
   const [activeTab, setActiveTab] = useState("active")
+  const [searchTerm, setSearchTerm] = useState("")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isSellerDialogOpen, setIsSellerDialogOpen] = useState(false)
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<any>(null)
+
   const [editForm, setEditForm] = useState({
-    firstName: "",
-    lastName: "",
-    city: "",
-    deliveryAddress: "",
-    bio: "",
+    firstName: currentUser?.firstName || "",
+    lastName: currentUser?.lastName || "",
+    city: currentUser?.city || "",
+    deliveryAddress: currentUser?.deliveryAddress || "",
+    bio: currentUser?.bio || "",
   })
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+
+  const [sellerForm, setSellerForm] = useState({
+    fullName: "",
+    bankName: "",
+    accountNumber: "",
+    iban: "",
+    swift: "",
+  })
+  
+  const [sellerFormErrors, setSellerFormErrors] = useState({
+    fullName: "",
+    bankName: "",
+    accountNumber: "",
+    iban: "",
+    swift: "",
+  })
+
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingSellerInfo, setIsSavingSellerInfo] = useState(false)
 
+  // Russian banks list
+  const russianBanks = [
+    'Сбербанк России',
+    'ВТБ',
+    'Газпромбанк',
+    'Альфа-Банк',
+    'Россельхозбанк',
+    'Тинькофф Банк',
+    'Московский Кредитный Банк',
+    'Райффайзенбанк',
+    'Банк ФК Открытие',
+    'Промсвязьбанк',
+    'Росбанк',  
+    'ЮниКредит Банк',
+    'Совкомбанк',
+    'Банк ВЭБ.РФ',
+    'Другой банк'
+  ]
 
+  // Validation functions
+  const validateSellerForm = () => {
+    const errors = {
+      fullName: "",
+      bankName: "",
+      accountNumber: "",
+      iban: "",
+      swift: "",
+    }
+
+    if (!sellerForm.fullName.trim()) {
+      errors.fullName = "Полное имя обязательно"
+    } else if (sellerForm.fullName.length < 3) {
+      errors.fullName = "Имя должно содержать минимум 3 символа"
+    }
+
+    if (!sellerForm.bankName.trim()) {
+      errors.bankName = "Выберите банк"
+    }
+
+    if (!sellerForm.accountNumber.trim()) {
+      errors.accountNumber = "Номер счета обязателен"
+    } else if (!/^\d{20}$/.test(sellerForm.accountNumber.replace(/\s/g, ''))) {
+      errors.accountNumber = "Номер счета должен содержать 20 цифр"
+    }
+
+    if (!sellerForm.iban.trim()) {
+      errors.iban = "IBAN обязателен"
+    } else if (!/^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{20}$/.test(sellerForm.iban.replace(/\s/g, ''))) {
+      errors.iban = "Неверный формат IBAN"
+    }
+
+    if (!sellerForm.swift.trim()) {
+      errors.swift = "SWIFT/BIC обязателен"
+    } else if (!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(sellerForm.swift.toUpperCase())) {
+      errors.swift = "Неверный формат SWIFT/BIC"
+    }
+
+    setSellerFormErrors(errors)
+    return Object.values(errors).every(error => !error)
+  }
+
+  useEffect(() => {
+    if (currentUser) {
+      setEditForm({
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
+        city: currentUser.city || "",
+        deliveryAddress: currentUser.deliveryAddress || "",
+        bio: currentUser.bio || "",
+      })
+      
+      if (currentUser.sellerInfo) {
+        setSellerForm({
+          fullName: currentUser.sellerInfo.fullName || "",
+          bankName: currentUser.sellerInfo.bankName || "",
+          accountNumber: currentUser.sellerInfo.accountNumber || "",
+          iban: currentUser.sellerInfo.iban || "",
+          swift: currentUser.sellerInfo.swift || "",
+        })
+      }
+    }
+  }, [currentUser])
+
+  if (!telegramUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
 
   const userData: UserProfile = {
     id: currentUser?._id || "",
-    name: currentUser ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : "",
+    name: `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim(),
     avatar: currentUser?.avatar || "/placeholder.svg",
-    trustLevel: currentUser?.trustLevel || "bronze",
-    rating: currentUser?.rating || 0,
-    joinDate: currentUser?.registeredAt ? new Date(currentUser.registeredAt).toISOString().split('T')[0] : "",
-    location: currentUser?.city || "",
-    totalSales: currentUser?.soldCount || 0,
-    activeListings: userPosts ? userPosts.filter(p => p.isActive).length : 0,
-    totalViews: currentUser?.totalViews || (userPosts ? userPosts.reduce((sum, post) => sum + (post.views || 0), 0) : 0),
-    bio: currentUser?.bio || "",
-    verificationStatus: currentUser?.verificationStatus || "unverified",
+    trustLevel: currentUser.trustLevel || "bronze",
+    rating: currentUser.rating || 0,
+    joinDate: currentUser.registeredAt ? new Date(currentUser.registeredAt).toISOString().split('T')[0] : "",
+    location: currentUser.city || "",
+    totalSales: currentUser.soldCount || 0,
+    activeListings: userPosts?.filter(p => p.isActive).length || 0,
+    totalViews: currentUser.totalViews || userPosts?.reduce((sum, post) => sum + (post.views || 0), 0) || 0,
+    bio: currentUser.bio || "",
+    verificationStatus: currentUser.verificationStatus || "unverified",
   }
 
   const mapPostToProduct = (post: any, isOwned: boolean, isFavorite: boolean) => ({
@@ -131,57 +268,45 @@ function ProfilePageContent() {
     isOwned,
   })
 
-  const getFilteredItems = () => {
-    if (!currentUser || !userPosts || !likedPosts) return []
-    
-    switch (activeTab) {
-      case "liked":
-        return likedPosts.map(post => mapPostToProduct(
-          post,
-          post.telegramId === telegramUser.userId,
-          true
-        ))
-      case "active":
-        return userPosts
-          .filter(post => post.isActive)
-          .map(post => mapPostToProduct(
-            post,
-            true,
-            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
-          ))
-      case "sold":
-        return userPosts
-          .filter(post => !post.isActive && post.soldAt)
-          .map(post => mapPostToProduct(
-            post,
-            true,
-            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
-          ))
-      default:
-        return userPosts
-          .filter(post => post.isActive)
-          .map(post => mapPostToProduct(
-            post,
-            true,
-            (currentUser?._id && post.likedBy?.includes(currentUser._id as any)) || false
-          ))
-    }
+  const stats = {
+    activeListings: userPosts?.filter(p => p.isActive).length || 0,
+    soldItems: userPosts?.filter(p => !p.isActive).length || 0,
+    totalViews: currentUser?.totalViews || 0,
+    rating: currentUser?.rating || 0,
   }
 
-  const filteredItems = getFilteredItems()
+  const getProductsByStatus = (isActive: boolean) => {
+    return userPosts?.filter(post => post.isActive === isActive) || []
+  }
 
-  const handleProductClick = (product: any) => {
-    setSelectedPostId(product.id)
+  const filteredPosts = userPosts?.filter(post => {
+    const matchesStatus = activeTab === "active" ? post.isActive : !post.isActive
+    if (!matchesStatus) return false
+    
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      post.name.toLowerCase().includes(searchLower) ||
+      post.brand?.toLowerCase().includes(searchLower) ||
+      post.category.toLowerCase().includes(searchLower) ||
+      post.description.toLowerCase().includes(searchLower)
+    )
+  }) || []
+
+  const isFavorited = (productId: string): boolean => {
+    const post = userPosts?.find(p => p._id === productId)
+    if (!post || !currentUser) return false
+    return post.likedBy?.includes(currentUser._id) || false
   }
 
   const handleToggleFavorite = async (productId: string) => {
-    if (!telegramUser.userId) return
+    if (!telegramUser?.userId) return
     
-    const product = filteredItems.find(p => p.id === productId)
-    if (!product) return
+    const post = userPosts?.find(p => p._id === productId)
+    if (!post || !currentUser) return
     
     try {
-      if (product.isFavorite) {
+      const isLiked = post.likedBy?.includes(currentUser._id)
+      if (isLiked) {
         await unlikePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
       } else {
         await likePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
@@ -191,238 +316,140 @@ function ProfilePageContent() {
     }
   }
 
-  const handleEditItem = (product: any) => {
-    setEditingPost(product)
-    setIsCreateDialogOpen(true)
-  }
-
-  const handleDeleteItem = async (productId: string) => {
-    if (!telegramUser.userId) return
+  const handleDeletePost = async (postId: string) => {
+    if (!telegramUser?.userId) return
+    
     try {
-      await deletePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
+      await deletePost({ 
+        postId: postId as Id<"posts">, 
+        telegramId: telegramUser.userId 
+      })
     } catch (error) {
       console.error("Error deleting post:", error)
     }
   }
 
-  const handleBack = () => {
-    router.push("/")
-  }
-
-  const handleEditProfile = () => {
-    if (!currentUser) return
-    
-    setEditForm({
-      firstName: currentUser.firstName,
-      lastName: currentUser.lastName || "",
-      city: currentUser.city || "",
-      deliveryAddress: currentUser.deliveryAddress || "",
-      bio: currentUser.bio || "",
-    })
-    setAvatarFile(null)
-    setAvatarPreview(null)
-    setIsEditDialogOpen(true)
-  }
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setAvatarFile(file)
-      setAvatarPreview(URL.createObjectURL(file))
-    }
-  }
-
-  const uploadAvatar = async () => {
-    if (!avatarFile || !telegramUser.userId) return null
-
-    try {
-      setIsUploadingAvatar(true)
-      console.log("Starting avatar upload...")
-      
-      const uploadUrl = await generateUploadUrl()
-      console.log("Got upload URL:", uploadUrl)
-      
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": avatarFile.type },
-        body: avatarFile,
-      })
-
-      if (!result.ok) {
-        throw new Error(`Upload failed: ${result.statusText}`)
-      }
-
-      const { storageId } = await result.json()
-      console.log("File uploaded, storage ID:", storageId)
-      
-      const updateResult = await updateUserAvatar({ telegramId: telegramUser.userId!, avatarStorageId: storageId })
-      console.log("Avatar updated in database:", updateResult)
-      
-      return storageId
-    } catch (error) {
-      console.error("Error uploading avatar:", error)
-      throw error
-    } finally {
-      setIsUploadingAvatar(false)
-    }
-  }
-
   const handleSaveProfile = async () => {
-    if (!telegramUser.userId) return
+    if (!telegramUser?.userId) return
     
+    setIsSavingProfile(true)
     try {
-      setIsSavingProfile(true)
-      
-      if (avatarFile) {
-        await uploadAvatar()
-      }
-
       await updateUserProfile({
-        telegramId: telegramUser.userId!,
-        firstName: editForm.firstName,
-        lastName: editForm.lastName || undefined,
-        city: editForm.city,
-        deliveryAddress: editForm.deliveryAddress,
-        bio: editForm.bio || undefined,
+        telegramId: telegramUser.userId,
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName?.trim() || undefined,
+        city: editForm.city?.trim() || "",
+        deliveryAddress: editForm.deliveryAddress?.trim() || "",
+        bio: editForm.bio?.trim() || undefined,
       })
       
-      setAvatarFile(null)
-      setAvatarPreview(null)
-      
-      setTimeout(() => {
-        setIsEditDialogOpen(false)
-        setIsSavingProfile(false)
-      }, 1000)
-      
+      setIsEditDialogOpen(false)
     } catch (error) {
       console.error("Error updating profile:", error)
+    } finally {
       setIsSavingProfile(false)
     }
   }
 
-  const handlePostCreated = () => {
+  const handleSaveSellerInfo = async () => {
+    if (!validateSellerForm()) return
+    if (!telegramUser?.userId) return
     
+    setIsSavingSellerInfo(true)
+    try {
+      await saveSellerPayoutInfo({
+        telegramId: telegramUser.userId,
+        fullName: sellerForm.fullName.trim(),
+        bankName: sellerForm.bankName.trim(),
+        accountNumber: sellerForm.accountNumber.replace(/\s/g, ''),
+        iban: sellerForm.iban.replace(/\s/g, '').toUpperCase(),
+        swift: sellerForm.swift.toUpperCase(),
+      })
+      setIsSellerDialogOpen(false)
+      setSellerFormErrors({
+        fullName: "",
+        bankName: "", 
+        accountNumber: "",
+        iban: "",
+        swift: "",
+      })
+    } catch (error) {
+      console.error("Error saving seller info:", error)
+    } finally {
+      setIsSavingSellerInfo(false)
+    }
   }
 
+  const getTrustLevelColor = (level: string) => {
+    switch (level) {
+      case "gold": return "text-yellow-600 bg-yellow-100"
+      case "silver": return "text-gray-600 bg-gray-100"
+      default: return "text-amber-600 bg-amber-100"
+    }
+  }
+
+  const getVerificationStatusInfo = (status: string) => {
+    switch (status) {
+      case "verified":
+        return { icon: CheckCircle, color: "text-green-600 bg-green-100", label: "Верифицирован" }
+      case "pending":
+        return { icon: Clock, color: "text-yellow-600 bg-yellow-100", label: "На проверке" }
+      default:
+        return { icon: XCircle, color: "text-gray-600 bg-gray-100", label: "Не верифицирован" }
+    }
+  }
+
+  const verificationInfo = getVerificationStatusInfo(userData.verificationStatus)
+  const VerificationIcon = verificationInfo.icon
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {!currentUser || !userPosts || !likedPosts ? (
-        <div className="max-w-6xl mx-auto p-2 md:p-4">
-          <PageLoader text="Загрузка профиля..." />
-        </div>
-      ) : (
-        <div className="max-w-6xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
-        <Card className="overflow-hidden py-0!">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-20 md:h-32"></div>
-          <CardContent className="relative pt-0 pb-4 md:pb-6 px-4 md:px-6">
-            <div className="flex flex-col md:flex-row md:items-end md:gap-6 -mt-10 md:-mt-16">
-              <div className="relative mx-auto md:mx-0">
-                <Avatar className="h-20 w-20 md:h-32 md:w-32 border-4 border-white shadow-lg">
-                  <AvatarImage 
-                    src={userData.avatar || "/placeholder.svg"} 
-                    className="object-cover object-center w-full h-full"
-                  />
-                  <AvatarFallback className="text-lg md:text-2xl font-bold">
-                    {userData.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                {userData.verificationStatus === "verified" && (
-                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1">
-                    <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl">
+      {/* Profile Header */}
+      <Card className="mb-4 sm:mb-6">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
+            <Avatar className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 ring-4 ring-white shadow-lg mx-auto md:mx-0">
+              <AvatarImage src={userData.avatar} alt={userData.name} />
+              <AvatarFallback className="text-sm sm:text-lg font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                {userData.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 space-y-3 text-center md:text-left w-full">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{userData.name}</h1>
+                  <div className="flex items-center justify-center md:justify-start space-x-2 mt-1">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm sm:text-base text-gray-600">{userData.location || "Местоположение не указано"}</span>
                   </div>
-                )}
-              </div>
-
-              <div className="flex-1 mt-6 md:mt-0 text-center md:text-left">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-3">
-                    <h2 className="text-xl md:text-3xl font-bold text-gray-900">{userData.name}</h2>
-                    <div className="flex items-center justify-center md:justify-start space-x-2">
-                      <Award className="h-5 w-5 text-amber-600" />
-                      <span className="text-xs md:text-sm font-medium text-gray-600">
-                        {userData.trustLevel === "bronze" ? "Бронзовый продавец" : 
-                         userData.trustLevel === "silver" ? "Серебряный продавец" : 
-                         "Золотой продавец"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-center md:justify-start space-x-4 text-xs md:text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-3 w-3 md:h-4 md:w-4 ${i < Math.floor(userData.rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                            />
-                          ))}
-                        </div>
-                        <span className="font-medium">{userData.rating > 0 ? userData.rating : "Нет оценок"}</span>
-                      </div>
-                    </div>
-                  </div>
-
+                </div>
+                
+                <div className="flex justify-center md:justify-end space-x-2">
                   <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="mt-4 md:mt-0 w-full md:w-auto" size="sm" onClick={handleEditProfile}>
+                      <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                         <Edit className="h-4 w-4 mr-2" />
-                        Редактировать профиль
+                        <span className="hidden sm:inline">Редактировать</span>
+                        <span className="sm:hidden">Изменить</span>
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="w-[95vw] max-w-md mx-auto">
                       <DialogHeader>
                         <DialogTitle>Редактировать профиль</DialogTitle>
                         <DialogDescription>
-                          Обновите информацию о себе, загрузите аватар и укажите контактные данные
+                          Обновите информацию о себе
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <div className="relative">
-                            <Avatar className="h-20 w-20">
-                              <AvatarImage 
-                                src={avatarPreview || userData.avatar || "/placeholder.svg"} 
-                                className="object-cover object-center w-full h-full"
-                              />
-                              <AvatarFallback>{userData.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
-                            </Avatar>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleAvatarChange}
-                              className="hidden"
-                              id="avatar-upload"
-                            />
-                            <Button 
-                              variant="outline" 
-                              size="icon" 
-                              className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
-                              onClick={() => document.getElementById('avatar-upload')?.click()}
-                              disabled={isUploadingAvatar}
-                            >
-                              {isUploadingAvatar ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                              ) : (
-                                <Camera className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="firstName">Имя</Label>
                             <Input
                               id="firstName"
                               value={editForm.firstName}
                               onChange={(e) => setEditForm({...editForm, firstName: e.target.value})}
+                              placeholder="Ваше имя"
                             />
                           </div>
                           <div>
@@ -431,187 +458,396 @@ function ProfilePageContent() {
                               id="lastName"
                               value={editForm.lastName}
                               onChange={(e) => setEditForm({...editForm, lastName: e.target.value})}
+                              placeholder="Ваша фамилия"
                             />
                           </div>
                         </div>
-
                         <div>
                           <Label htmlFor="city">Город</Label>
                           <Input
                             id="city"
                             value={editForm.city}
-                            placeholder="Укажите ваш город"
                             onChange={(e) => setEditForm({...editForm, city: e.target.value})}
+                            placeholder="Ваш город"
                           />
                         </div>
-
                         <div>
-                          <Label htmlFor="address">Адрес доставки</Label>
+                          <Label htmlFor="deliveryAddress">Адрес доставки</Label>
                           <Input
-                            id="address"
+                            id="deliveryAddress"
                             value={editForm.deliveryAddress}
-                            placeholder="Укажите адрес для доставки"
                             onChange={(e) => setEditForm({...editForm, deliveryAddress: e.target.value})}
+                            placeholder="Адрес для доставки"
                           />
                         </div>
-
                         <div>
                           <Label htmlFor="bio">О себе</Label>
                           <Textarea
                             id="bio"
                             value={editForm.bio}
                             onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                            placeholder="Расскажите о себе, опыте продаж, условиях доставки..."
+                            placeholder="Расскажите о себе"
                             rows={3}
                           />
                         </div>
-
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            className="flex-1" 
-                            onClick={() => setIsEditDialogOpen(false)}
-                            disabled={isSavingProfile}
-                          >
-                            Отмена
-                          </Button>
-                          <Button 
-                            className="flex-1" 
-                            onClick={handleSaveProfile}
-                            disabled={isSavingProfile}
-                          >
-                            {isSavingProfile ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Сохраняем...
-                              </>
-                            ) : (
-                              <>
-                                <Save className="h-4 w-4 mr-2" />
-                                Сохранить
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                          Отмена
+                        </Button>
+                        <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+                          {isSavingProfile ? "Сохранение..." : "Сохранить"}
+                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-4 md:mt-6 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-              <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
-                <div className="text-lg md:text-2xl font-bold text-gray-900">{userData.totalSales}</div>
-                <div className="text-xs md:text-sm text-gray-600">Продано товаров</div>
+              {/* User badges and trust indicators */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                <Badge variant="outline" className="text-amber-600 border-amber-200">
+                  <Award className="h-3 w-3 mr-1" />
+                  {userData.trustLevel === "bronze" ? "🥉" : userData.trustLevel === "silver" ? "🥈" : "🥇"} 
+                  {userData.trustLevel.charAt(0).toUpperCase() + userData.trustLevel.slice(1)}
+                </Badge>
+                <Badge variant="outline" className={
+                  userData.verificationStatus === "verified" ? "text-green-600 border-green-200" :
+                  userData.verificationStatus === "pending" ? "text-amber-600 border-amber-200" :
+                  "text-gray-600 border-gray-200"
+                }>
+                  {userData.verificationStatus === "verified" ? <CheckCircle className="h-3 w-3 mr-1" /> :
+                   userData.verificationStatus === "pending" ? <Clock className="h-3 w-3 mr-1" /> :
+                   <XCircle className="h-3 w-3 mr-1" />}
+                  {userData.verificationStatus === "verified" ? "Верифицирован" :
+                   userData.verificationStatus === "pending" ? "На проверке" : "Не верифицирован"}
+                </Badge>
               </div>
-              <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
-                <div className="text-lg md:text-2xl font-bold text-gray-900">{userData.activeListings}</div>
-                <div className="text-xs md:text-sm text-gray-600">Активных объявлений</div>
-              </div>
-              <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
-                <div className="text-lg md:text-2xl font-bold text-gray-900">{userData.totalViews.toLocaleString()}</div>
-                <div className="text-xs md:text-sm text-gray-600">Просмотров</div>
-              </div>
-              <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-center space-x-1">
-                  <MapPin className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                  <span className="text-xs md:text-sm font-medium text-gray-900">
-                    {userData.location || "Город не указан"}
-                  </span>
-                </div>
-                <div className="text-xs md:text-sm text-gray-600 mt-1">
-                  На платформе с {new Date(userData.joinDate).toLocaleDateString("ru-RU")}
-                </div>
-              </div>
-            </div>
 
-            {userData.bio ? (
-              <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">О продавце</h3>
-                <p className="text-gray-700 leading-relaxed text-sm md:text-base">{userData.bio}</p>
-              </div>
-            ) : (
-              <div className="mt-4 md:mt-6 p-3 md:p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <h3 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">О продавце</h3>
-                <p className="text-gray-500 leading-relaxed text-sm md:text-base italic">
-                  Расскажите потенциальным покупателям о себе. Нажмите &quot;Редактировать профиль&quot; чтобы добавить информацию.
+              {/* Bio */}
+              {userData.bio && (
+                <p className="text-sm sm:text-base text-gray-700 mt-3 leading-relaxed">
+                  {userData.bio}
                 </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.activeListings}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Активных товаров</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.totalSales}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Продано</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.totalViews}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Просмотров</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.rating.toFixed(1)}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Рейтинг</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* YooKassa Escrow Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        {/* Buyer Protection Card */}
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              <Badge variant="outline" className="text-blue-600 border-blue-200">
+                Информация
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex items-center space-x-2 mb-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <span className="font-medium text-gray-900">Защита покупателей</span>
               </div>
-            )}
+              <div className="text-xs sm:text-sm text-gray-500 bg-blue-50 p-3 rounded-lg">
+                <p className="mb-1">✓ Деньги заморожены до получения товара</p>
+                <p className="mb-1">✓ Возврат при проблемах</p>
+                <p>✓ Поддержка споров через платформу</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        {/* Seller Payout Card */}
+        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+          <CardHeader className="pb-3">
             <CardTitle className="flex items-center space-x-2">
-              <Package className="h-5 w-5" />
-              <span>Мои товары</span>
+              <Bank className="h-5 w-5 text-green-600" />
+              <span className="text-sm sm:text-base">Выплаты продавцам</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-3 md:p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-auto">
-                <TabsTrigger value="active" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Активные ({userPosts.filter((post) => post.isActive).length})</span>
-                  <span className="md:hidden">Активные</span>
-                </TabsTrigger>
-                <TabsTrigger value="liked" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Понравившиеся ({likedPosts.length})</span>
-                  <span className="md:hidden">❤️</span>
-                </TabsTrigger>
-                <TabsTrigger value="sold" className="text-xs md:text-sm p-2 md:p-3">
-                  <span className="hidden md:inline">Проданные ({userPosts.filter((post) => !post.isActive && post.soldAt).length})</span>
-                  <span className="md:hidden">Проданные</span>
-                </TabsTrigger>
-              </TabsList>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Building className="h-4 w-4 text-gray-500" />
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-gray-900">Банковские реквизиты</p>
+                  <p className="text-xs text-gray-600">
+                    {currentUser.sellerInfo 
+                      ? `${currentUser.sellerInfo.bankName}`
+                      : 'Добавьте банковские реквизиты'
+                    }
+                  </p>
+                </div>
+              </div>
+              <Badge 
+                variant="outline" 
+                className={currentUser.sellerInfo 
+                  ? "text-green-600 border-green-200"
+                  : "text-amber-600 border-amber-200"
+                }
+              >
+                {currentUser.sellerInfo ? 'Готово' : 'Требуется'}
+              </Badge>
+            </div>
+            
+            <div className="flex space-x-2">
+              <Dialog open={isSellerDialogOpen} onOpenChange={setIsSellerDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Settings className="h-4 w-4 mr-2" />
+                    {currentUser.sellerInfo ? 'Изменить' : 'Настроить'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[95vw] max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Банковские реквизиты</DialogTitle>
+                    <DialogDescription>
+                      Укажите данные для получения выплат через YooKassa
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div>
+                      <Label htmlFor="fullName" className="mb-1">Полное имя (как в банке)</Label>
+                      <Input
+                        id="fullName"
+                        value={sellerForm.fullName}
+                        onChange={(e) => setSellerForm({...sellerForm, fullName: e.target.value})}
+                        placeholder="Иванов Иван Иванович"
+                        className={sellerFormErrors.fullName ? "border-red-500" : ""}
+                      />
+                      {sellerFormErrors.fullName && (
+                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.fullName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="bankName" className="mb-1">Название банка</Label>
+                      <Select onValueChange={(value) => setSellerForm({...sellerForm, bankName: value})} value={sellerForm.bankName}>
+                        <SelectTrigger className={`w-full ${sellerFormErrors.bankName ? "border-red-500" : ""}`}>
+                          <SelectValue placeholder="Выберите банк" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {russianBanks.map(bank => (
+                            <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {sellerFormErrors.bankName && (
+                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.bankName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="accountNumber" className="mb-1">Номер счета</Label>
+                      <Input
+                        id="accountNumber"
+                        value={sellerForm.accountNumber}
+                        onChange={(e) => setSellerForm({...sellerForm, accountNumber: e.target.value})}
+                        placeholder="40817810000000000000"
+                        className={sellerFormErrors.accountNumber ? "border-red-500" : ""}
+                      />
+                      {sellerFormErrors.accountNumber && (
+                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.accountNumber}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="iban" className="mb-1">IBAN</Label>
+                      <Input
+                        id="iban"
+                        value={sellerForm.iban}
+                        onChange={(e) => setSellerForm({...sellerForm, iban: e.target.value})}
+                        placeholder="RU0000000000000000000000"
+                        className={sellerFormErrors.iban ? "border-red-500" : ""}
+                      />
+                      {sellerFormErrors.iban && (
+                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.iban}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="swift" className="mb-1">SWIFT/BIC</Label>
+                      <Input
+                        id="swift"
+                        value={sellerForm.swift}
+                        onChange={(e) => setSellerForm({...sellerForm, swift: e.target.value})}
+                        placeholder="SABRRUMM"
+                        className={sellerFormErrors.swift ? "border-red-500" : ""}
+                      />
+                      {sellerFormErrors.swift && (
+                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.swift}</p>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 bg-amber-50 p-3 rounded-lg">
+                      <p className="mb-2"><Lock className="h-3 w-3 inline mr-1" />Безопасность данных:</p>
+                      <p className="mb-1">• Информация шифруется и хранится согласно стандартам PCI DSS</p>
+                      <p className="mb-1">• Данные используются только для выплат через YooKassa</p>
+                      <p>• Мы не имеем доступа к вашим банковским операциям</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+                    <Button variant="outline" onClick={() => setIsSellerDialogOpen(false)} className="w-full sm:w-auto">
+                      Отмена
+                    </Button>
+                    <Button onClick={handleSaveSellerInfo} disabled={isSavingSellerInfo} className="w-full sm:w-auto">
+                      {isSavingSellerInfo ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-              <TabsContent value={activeTab} className="mt-6">
-                {filteredItems.length === 0 ? (
-                  <div className="text-center py-12">
+      {/* Products Section */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="flex items-center space-x-2">
+              <Package className="h-5 w-5" />
+              <span className="text-lg sm:text-xl">Мои товары</span>
+            </CardTitle>
+            <Button onClick={() => setIsCreateDialogOpen(true)} size="sm" className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Добавить товар</span>
+              <span className="sm:hidden">Добавить</span>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-auto">
+              <TabsTrigger value="active" className="flex items-center justify-center space-x-1 p-2 text-xs sm:text-sm">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Активные</span>
+                <span className="sm:hidden">Акт.</span>
+                <span>({userPosts?.filter(p => p.isActive).length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="sold" className="flex items-center justify-center space-x-1 p-2 text-xs sm:text-sm">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Проданные</span>
+                <span className="sm:hidden">Прод.</span>
+                <span>({userPosts?.filter(p => !p.isActive && p.soldAt).length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="liked" className="flex items-center justify-center space-x-1 p-2 text-xs sm:text-sm">
+                <Heart className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Избранное</span>
+                <span className="sm:hidden">Избр.</span>
+                <span>({userPosts?.filter(p => p.likedBy?.includes(currentUser?._id as any)).length || 0})</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search Bar */}
+            <div className="mt-4 mb-6">
+              <div className="relative">
+                <Input
+                  placeholder="Поиск товаров..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Package className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            {["active", "sold", "liked"].map(tab => (
+              <TabsContent key={tab} value={tab} className="mt-6">
+                {filteredPosts.length === 0 ? (
+                  <div className="text-center py-8 sm:py-12">
                     <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Нет товаров</h3>
-                    <p className="text-gray-600">В этой категории пока нет товаров</p>
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
+                      {tab === "liked" ? "Нет избранных товаров" : 
+                       tab === "sold" ? "Нет проданных товаров" : 
+                       "Нет активных товаров"}
+                    </h3>
+                    <p className="text-sm sm:text-base text-gray-600 mb-4 px-4">
+                      {tab === "liked" ? "Добавьте товары в избранное, чтобы они появились здесь" :
+                       tab === "sold" ? "Проданные товары будут отображаться здесь" :
+                       "Начните продавать, добавив свой первый товар"}
+                    </p>
+                    {tab === "active" && (
+                      <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Добавить первый товар
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {filteredItems.map((item, index) => (
-                      <ProductCard
-                        key={item.id}
-                        product={item}
-                        onProductClick={handleProductClick}
-                        onToggleFavorite={handleToggleFavorite}
-                        onEdit={handleEditItem}
-                        onDelete={handleDeleteItem}
-                        priority={index === 0}
-                      />
-                    ))}
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                    {filteredPosts.map((post) => {
+                      const mappedProduct = mapPostToProduct(post, true, isFavorited(post._id))
+                      return (
+                        <ProductCard
+                          key={post._id}
+                          product={mappedProduct}
+                          onProductClick={() => setSelectedPostId(post._id)}
+                          onToggleFavorite={handleToggleFavorite}
+                          onDelete={handleDeletePost}
+                          onEdit={(product: any) => {
+                            setEditingPost(post)
+                            setIsCreateDialogOpen(true)
+                          }}
+                        />
+                      )
+                    })}
                   </div>
                 )}
               </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-        </div>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Product Detail Modal */}
+      {selectedPostId && (
+        <ProductDetail
+          postId={selectedPostId}
+          isOpen={!!selectedPostId}
+          onClose={() => setSelectedPostId(null)}
+        />
       )}
 
-      <ProductDetail
-        postId={selectedPostId}
-        isOpen={selectedPostId !== null}
-        onEdit={handleEditItem}
-        onDelete={handleDeleteItem}
-        onClose={() => setSelectedPostId(null)}
+      {/* Create/Edit Product Modal */}
+      <AddItemDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => {
+          setIsCreateDialogOpen(false)
+          setEditingPost(null)
+        }}
+        editingPost={editingPost}
       />
-
-              <AddItemDialog
-          isOpen={isCreateDialogOpen}
-          onClose={() => {
-            setIsCreateDialogOpen(false)
-            setEditingPost(null)
-          }}
-          onPostCreated={handlePostCreated}
-          editingPost={editingPost}
-        />
     </div>
   )
 }

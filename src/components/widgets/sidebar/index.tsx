@@ -93,7 +93,11 @@ export function AppSidebar({
   // Get notification counts
   const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" })
   const currentUser = telegramUser.userData
-  const userChats = useQuery(api.chats.getUserChats, currentUser?._id ? { userId: currentUser._id as any } : 'skip')
+  const userChats = useQuery(api.chats.getUserChats, 
+    (currentUser?.userId && telegramUser.isInitialized) 
+      ? { userId: currentUser.userId as any } 
+      : 'skip'
+  )
   
   const activeCasesCount = activeCases?.length || 0
   const unreadMessagesCount = userChats?.reduce((total, chat) => {

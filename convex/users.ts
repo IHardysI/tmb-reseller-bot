@@ -332,4 +332,42 @@ export const debugUserChatIds = query({
       lastName: user.lastName
     }));
   },
-}); 
+});
+
+
+
+export const saveSellerPayoutInfo = mutation({
+  args: {
+    telegramId: v.number(),
+    fullName: v.string(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    iban: v.string(),
+    swift: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      sellerInfo: {
+        fullName: args.fullName,
+        bankName: args.bankName,
+        accountNumber: args.accountNumber,
+        iban: args.iban,
+        swift: args.swift,
+        submittedAt: Date.now(),
+      },
+    });
+
+    return { success: true };
+  },
+});
+
+ 

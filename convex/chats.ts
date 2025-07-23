@@ -26,7 +26,7 @@ export const getUserChats = query({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
-      throw new Error("User not found");
+      return [];
     }
 
     const allBuyerChats = await ctx.db

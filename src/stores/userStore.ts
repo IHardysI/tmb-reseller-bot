@@ -43,6 +43,15 @@ interface UserData {
   unblockedBy?: string
   unblockReason?: string
   role?: 'admin' | 'user'
+  email?: string
+  sellerInfo?: {
+    fullName: string
+    bankName: string
+    accountNumber: string
+    iban: string
+    swift: string
+    submittedAt: number
+  }
 }
 
 interface UserStore {
@@ -58,6 +67,8 @@ interface UserStore {
   setInitialized: (initialized: boolean) => void
   clearUser: () => void
   syncUserData: () => void
+  clearAllData: () => void
+  clearUserDataOnly: () => void
   
   isUserAvailable: () => boolean
   isOnboardingCompleted: () => boolean
@@ -126,6 +137,40 @@ export const useUserStore = create<UserStore>()(
         // For now, it's a placeholder for future implementation
       },
       
+      clearAllData: () => {
+        set({ 
+          telegramUser: null, 
+          userData: null, 
+          isInitialized: false, 
+          isLoading: false 
+        })
+        // Clear cookies/storage as well
+        cookieStorage.removeItem('user-store')
+      },
+      
+      clearUserDataOnly: () => {
+        console.log('🧹 clearUserDataOnly called')
+        const stateBefore = get()
+        console.log('📊 State before clear:', { 
+          hasUserData: !!stateBefore.userData, 
+          hasTelegramUser: !!stateBefore.telegramUser,
+          isInitialized: stateBefore.isInitialized 
+        })
+        
+        set({ 
+          userData: null,  
+          isLoading: false 
+        })
+        
+        const stateAfter = get()
+        console.log('📊 State after clear:', { 
+          hasUserData: !!stateAfter.userData, 
+          hasTelegramUser: !!stateAfter.telegramUser,
+          isInitialized: stateAfter.isInitialized 
+        })
+        // Keep telegramUser and isInitialized - just clear the database user data
+      },
+      
       isUserAvailable: () => {
         const { telegramUser } = get()
         return !!telegramUser
@@ -144,7 +189,9 @@ export const useUserStore = create<UserStore>()(
       isUserAdmin: () => {
         const { userData } = get()
         return userData?.role === 'admin'
-      }
+      },
+      
+
     }),
     {
       name: 'user-store',

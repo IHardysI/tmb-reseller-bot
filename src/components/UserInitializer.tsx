@@ -15,7 +15,8 @@ export function UserInitializer() {
     setTelegramUser, 
     setUserData, 
     setInitialized, 
-    setLoading 
+    setLoading,
+    clearUserDataOnly
   } = useUserStore()
 
   const existingUser = useQuery(
@@ -79,15 +80,27 @@ export function UserInitializer() {
           })
         }
       } else {
-        console.log('❌ No existing user found')
-        setUserData(null)
+        console.log('❌ No existing user found - user may have been deleted')
+        // If we previously had user data but now don't find the user in DB,
+        // it means the user was deleted, so clear only the user data
+        if (userData) {
+          console.log('🧹 User was deleted from database, clearing user data but keeping Telegram user')
+          console.log('📊 Before clearUserDataOnly:', { hasUserData: !!userData, hasTelegramUser: !!telegramUser })
+          clearUserDataOnly()  
+          console.log('✅ Cleared user data, auth guard should now redirect to login')
+          // This will trigger the auth guard to redirect to registration
+        } else {
+          console.log('ℹ️ No cached userData found, setting to null')
+          setUserData(null)
+        }
       }
       
+      // Always set initialized when we get a response (even if user doesn't exist)
       if (!isInitialized) {
         setInitialized(true)
       }
     }
-  }, [existingUser, setUserData, setLoading, isInitialized, setInitialized, user, updateUserChatId])
+  }, [existingUser, setUserData, setLoading, isInitialized, setInitialized, user, updateUserChatId, userData, clearUserDataOnly])
 
   return null
 } 

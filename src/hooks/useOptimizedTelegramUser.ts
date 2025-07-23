@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/userStore'
+import { useMemo } from 'react'
 
 export function useOptimizedTelegramUser() {
   const { 
@@ -12,11 +13,33 @@ export function useOptimizedTelegramUser() {
     isUserAdmin 
   } = useUserStore()
 
-  return {
-    user: telegramUser,
-    userData,
+  return useMemo(() => ({
     isInitialized,
     isLoading,
+    userData: userData ? {
+      userId: userData._id || '',
+      telegramId: userData.telegramId,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      username: userData.username,
+      city: userData.city,
+      deliveryAddress: userData.deliveryAddress,
+      bio: userData.bio,
+      rating: userData.rating || 0,
+      reviewsCount: userData.reviewsCount || 0,
+      postsCount: userData.postsCount || 0,
+      soldCount: userData.soldCount || 0,
+      totalViews: userData.totalViews || 0,
+      trustLevel: userData.trustLevel || 'bronze',
+      verificationStatus: userData.verificationStatus || 'unverified',
+      registeredAt: userData.registeredAt || Date.now(),
+      role: userData.role,
+      email: userData.email,
+      sellerInfo: userData.sellerInfo,
+      isBlocked: userData.isBlocked || false,
+      onboardingCompleted: userData.onboardingCompleted || false,
+    } : null,
+    user: telegramUser,
     isUserAvailable: isUserAvailable(),
     userId: telegramUser?.id,
     userName: telegramUser?.username,
@@ -42,6 +65,8 @@ export function useOptimizedTelegramUser() {
     totalViews: userData?.totalViews,
     registeredAt: userData?.registeredAt,
     lastOnline: userData?.lastOnline,
-    role: userData?.role
-  }
+    role: userData?.role,
+    email: userData?.email,
+    sellerInfo: userData?.sellerInfo
+  }), [userData, isInitialized, isLoading, telegramUser]);
 } 

@@ -50,7 +50,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   if (existingUser === null) {
-    return <FullScreenLoader text="Перенаправление на регистрацию..." />;
+    return <FullScreenLoader text="" />;
   }
 
   if (!existingUser.onboardingCompleted) {

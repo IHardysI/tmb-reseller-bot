@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
 
 import {
   Award,
@@ -18,6 +20,13 @@ import {
   Shield,
   ShieldCheck,
   Clock,
+  CheckCircle,
+  XCircle,
+  Heart,
+  DollarSign,
+  BanknoteIcon as Bank,
+  Lock,
+  Building,
 } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
@@ -27,6 +36,21 @@ import { useRouter } from "next/navigation"
 import { PageLoader } from "@/components/ui/loader"
 import ProductCard from "@/components/widgets/product-card"
 import ProductDetail from "@/components/widgets/product-detail"
+
+interface UserProfile {
+  id: string
+  name: string
+  avatar: string
+  trustLevel: "bronze" | "silver" | "gold"
+  rating: number
+  joinDate: string
+  location: string
+  totalSales: number
+  activeListings: number
+  totalViews: number
+  bio: string
+  verificationStatus: "verified" | "pending" | "unverified"
+}
 
 interface UserProfilePageProps {
   params: Promise<{
@@ -46,98 +70,34 @@ export default function UserProfilePage({ params, searchParams }: UserProfilePag
   const { backToChatId } = resolvedSearchParams
   
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
+  const [activeTab, setActiveTab] = useState("active")
+  const [searchTerm, setSearchTerm] = useState("")
 
   const currentUser = useQuery(
-    api.users.getUserByTelegramId, 
+    api.users.getUserByTelegramId,
     telegramUser?.userId ? { telegramId: telegramUser.userId } : "skip"
   )
 
-  const profileUser = useQuery(
-    api.users.getUserById,
-    userId ? { userId: userId as Id<"users"> } : "skip"
-  )
+  const viewedUser = useQuery(api.users.getUserById, { userId: userId as Id<"users"> })
+  const userPosts = useQuery(api.posts.getUserPostsByUserId, { userId: userId as Id<"users"> })
 
-  const userPosts = useQuery(
-    api.posts.getUserPostsByUserId,
-    userId ? { userId: userId as Id<"users"> } : "skip"
-  )
-
-
-
-  const handleBack = () => {
-    if (backToChatId) {
-      router.push(`/messages/${backToChatId}`)
-    } else {
-      router.back()
-    }
+  if (!viewedUser || !userPosts) {
+    return <PageLoader />
   }
 
-  const getTrustIcon = (trust: string) => {
-    const colors = {
-      bronze: "text-amber-600",
-      silver: "text-gray-500", 
-      gold: "text-yellow-500",
-    }
-    return <Award className={`h-5 w-5 ${colors[trust as keyof typeof colors]}`} />
-  }
-
-  const getVerificationBadge = (status: string) => {
-    switch (status) {
-      case "verified":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
-            <ShieldCheck className="h-3 w-3 mr-1" />
-            Проверен
-          </Badge>
-        )
-      case "pending":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            <Clock className="h-3 w-3 mr-1" />
-            На проверке
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
-            <Shield className="h-3 w-3 mr-1" />
-            Не проверен
-          </Badge>
-        )
-    }
-  }
-
-  const formatLastOnline = (isOnline: boolean, lastOnline?: number) => {
-    if (isOnline) {
-      return "В сети"
-    }
-    
-    if (!lastOnline) {
-      return "Был в сети давно"
-    }
-    
-    const now = Date.now()
-    const timeDiff = now - lastOnline
-    const minutes = Math.floor(timeDiff / 60000)
-    const hours = Math.floor(timeDiff / 3600000)
-    const days = Math.floor(timeDiff / 86400000)
-    
-    if (minutes < 60) {
-      if (minutes < 5) {
-        return "Был в сети недавно"
-      }
-      return `Был в сети ${minutes} мин. назад`
-    }
-    
-    if (hours < 24) {
-      return `Был в сети ${hours} ч. назад`
-    }
-    
-    if (days === 1) {
-      return "Был в сети вчера"
-    }
-    
-    return `Был в сети ${days} дн. назад`
+  const userData: UserProfile = {
+    id: viewedUser._id,
+    name: `${viewedUser.firstName} ${viewedUser.lastName || ''}`.trim(),
+    avatar: viewedUser.avatar || "/placeholder.svg",
+    trustLevel: viewedUser.trustLevel || "bronze",
+    rating: viewedUser.rating || 0,
+    joinDate: viewedUser.registeredAt ? new Date(viewedUser.registeredAt).toISOString().split('T')[0] : "",
+    location: viewedUser.city || "",
+    totalSales: viewedUser.soldCount || 0,
+    activeListings: userPosts?.filter(p => p.isActive).length || 0,
+    totalViews: viewedUser.totalViews || userPosts?.reduce((sum, post) => sum + (post.views || 0), 0) || 0,
+    bio: viewedUser.bio || "",
+    verificationStatus: viewedUser.verificationStatus || "unverified",
   }
 
   const mapPostToProduct = (post: any, isOwned: boolean, isFavorite: boolean) => ({
@@ -157,249 +117,253 @@ export default function UserProfilePage({ params, searchParams }: UserProfilePag
       location: d.location,
     })),
     isFavorite,
+    isOwned,
+    likesCount: post.likesCount || 0,
+    views: post.views || 0,
+    sellerName: post.sellerName,
+    sellerCity: post.sellerCity,
     aiRating: post.aiRating,
     aiRecommendation: post.aiRecommendation,
     aiExplanation: post.aiExplanation,
-    sellerName: post.sellerName,
-    sellerCity: post.sellerCity,
-    likesCount: post.likesCount,
-    views: post.views,
-    isOwned,
   })
 
-  const getFilteredItems = () => {
-    if (!userPosts) return []
+  const filteredPosts = userPosts?.filter(post => {
+    const matchesStatus = activeTab === "active" ? post.isActive : !post.isActive
+    if (!matchesStatus) return false
     
-    // Only show active items for other users' profiles
-    return userPosts
-      .filter(post => post.isActive)
-      .map(post => mapPostToProduct(
-        post,
-        false,
-        currentUser && post.likedBy?.includes(currentUser._id) || false
-      ))
-  }
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      post.name.toLowerCase().includes(searchLower) ||
+      post.brand?.toLowerCase().includes(searchLower) ||
+      post.category.toLowerCase().includes(searchLower) ||
+      post.description.toLowerCase().includes(searchLower)
+    )
+  }) || []
 
-  const filteredItems = getFilteredItems()
+  const isFavorited = (productId: string): boolean => {
+    const post = userPosts?.find(p => p._id === productId)
+    if (!post || !currentUser) return false
+    return post.likedBy?.includes(currentUser._id) || false
+  }
 
   const likePost = useMutation(api.posts.likePost)
   const unlikePost = useMutation(api.posts.unlikePost)
 
-  const handleProductClick = (product: any) => {
-    setSelectedPostId(product.id)
-  }
-
   const handleToggleFavorite = async (productId: string) => {
     if (!telegramUser?.userId) return
     
-    const product = filteredItems.find(p => p.id === productId)
-    if (!product) return
+    const post = userPosts?.find(p => p._id === productId)
+    if (!post || !currentUser) return
     
     try {
-      if (product.isFavorite) {
-        await unlikePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+      const isLiked = post.likedBy?.includes(currentUser._id)
+      if (isLiked) {
+        await unlikePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
       } else {
-        await likePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId })
+        await likePost({ postId: productId as Id<"posts">, telegramId: telegramUser.userId! })
       }
     } catch (error) {
       console.error("Error toggling favorite:", error)
     }
   }
 
-  if (!telegramUser) {
-    return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="" />
-      </div>
-    )
+  const handleProductClick = (product: any) => {
+    setSelectedPostId(product._id)
   }
 
-  if (!profileUser) {
-    return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <PageLoader text="" />
-      </div>
-    )
-  }
-
-  // Check online status
-  const now = Date.now()
-  const lastOnline = profileUser?.lastOnline || 0
-  const timeDiff = now - lastOnline
-  const isOnline = timeDiff <= 300000 // 5 minutes = online
+  const isOwnProfile = currentUser?._id === userId
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center space-x-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBack}
-            className="p-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="font-semibold text-lg">Профиль пользователя</h1>
-        </div>
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl">
+      {/* Back Button */}
+      <div className="mb-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => backToChatId ? router.push(`/messages/${backToChatId}`) : router.back()}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Назад
+        </Button>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-32 relative">
-              <div className="absolute inset-0 bg-black/20"></div>
-            </div>
-            <div className="p-6 -mt-16 relative">
-              <div className="flex flex-col sm:flex-row sm:items-end sm:space-x-6 space-y-4 sm:space-y-0">
-                <div className="relative">
-                  <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                    <AvatarImage src={profileUser?.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                      {profileUser?.firstName?.[0] || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  {isOnline && (
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 border-2 border-white rounded-full flex items-center justify-center">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                        <span>{`${profileUser?.firstName || ''} ${profileUser?.lastName || ''}`.trim()}</span>
-                        {getTrustIcon(profileUser?.trustLevel || "bronze")}
-                      </h1>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatLastOnline(isOnline, profileUser?.lastOnline)}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                      {getVerificationBadge(profileUser?.verificationStatus || "unverified")}
-                      <div className="flex items-center space-x-1 text-sm text-gray-600">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{profileUser?.rating || 0}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>{profileUser?.city || "Не указано"}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>С {new Date(profileUser?.registeredAt || 0).toLocaleDateString("ru-RU")}</span>
-                    </div>
-                  </div>
+      {/* Profile Header */}
+      <Card className="mb-4 sm:mb-6">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
+            <Avatar className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 ring-4 ring-white shadow-lg mx-auto md:mx-0">
+              <AvatarImage src={userData.avatar} alt={userData.name} />
+              <AvatarFallback className="text-sm sm:text-lg font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                {userData.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 space-y-3 text-center md:text-left w-full">
+              <div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{userData.name}</h1>
+                <div className="flex items-center justify-center md:justify-start space-x-2 mt-1">
+                  <MapPin className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm sm:text-base text-gray-600">{userData.location || "Местоположение не указано"}</span>
                 </div>
               </div>
-              
-              {profileUser?.bio && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-700 leading-relaxed">{profileUser.bio}</p>
-                </div>
+
+              {/* User badges and trust indicators */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                <Badge variant="outline" className="text-amber-600 border-amber-200">
+                  <Award className="h-3 w-3 mr-1" />
+                  {userData.trustLevel === "bronze" ? "🥉" : userData.trustLevel === "silver" ? "🥈" : "🥇"} 
+                  {userData.trustLevel.charAt(0).toUpperCase() + userData.trustLevel.slice(1)}
+                </Badge>
+                <Badge variant="outline" className={
+                  userData.verificationStatus === "verified" ? "text-green-600 border-green-200" :
+                  userData.verificationStatus === "pending" ? "text-amber-600 border-amber-200" :
+                  "text-gray-600 border-gray-200"
+                }>
+                  {userData.verificationStatus === "verified" ? <CheckCircle className="h-3 w-3 mr-1" /> :
+                   userData.verificationStatus === "pending" ? <Clock className="h-3 w-3 mr-1" /> :
+                   <XCircle className="h-3 w-3 mr-1" />}
+                  {userData.verificationStatus === "verified" ? "Верифицирован" :
+                   userData.verificationStatus === "pending" ? "На проверке" : "Не верифицирован"}
+                </Badge>
+              </div>
+
+              {/* Bio */}
+              {userData.bio && (
+                <p className="text-sm sm:text-base text-gray-700 mt-3 leading-relaxed">
+                  {userData.bio}
+                </p>
               )}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.activeListings}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Активных товаров</div>
           </CardContent>
         </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Продано</p>
-                  <p className="text-xl font-bold text-gray-900">{profileUser?.soldCount || 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Package className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">На продаже</p>
-                  <p className="text-xl font-bold text-gray-900">{userPosts ? userPosts.filter(p => p.isActive).length : 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Eye className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Просмотры</p>
-                  <p className="text-xl font-bold text-gray-900">{profileUser?.totalViews || (userPosts ? userPosts.reduce((sum, post) => sum + (post.views || 0), 0) : 0)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Star className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Рейтинг</p>
-                  <p className="text-xl font-bold text-gray-900">{profileUser?.rating || 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Package className="h-5 w-5" />
-              <span>Товары на продаже</span>
-              <Badge variant="secondary" className="ml-2">
-                {userPosts ? userPosts.filter(p => p.isActive).length : 0}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredItems.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onProductClick={handleProductClick}
-                  onToggleFavorite={handleToggleFavorite}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                />
-              ))}
-            </div>
-            {filteredItems.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-500 text-lg font-medium">Нет товаров на продаже</p>
-                <p className="text-gray-400 text-sm mt-2">Пользователь пока не выставил товары на продажу</p>
-              </div>
-            )}
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.totalSales}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Продано</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.totalViews}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Просмотров</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{userData.rating.toFixed(1)}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Рейтинг</div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Trust and Safety Info (Public) */}
+      <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-blue-200 mb-4 sm:mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="rounded-full p-2 bg-blue-100">
+                <Shield className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">
+                  Безопасные сделки через YooKassa
+                </p>
+                <p className="text-sm text-gray-600">
+                  Все платежи защищены эскроу-системой для безопасности покупателей
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-green-100 text-green-700 border-green-200">
+              Активно
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Products Section */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center space-x-2">
+            <Package className="h-5 w-5" />
+            <span className="text-lg sm:text-xl">Товары продавца</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-auto">
+              <TabsTrigger value="active" className="flex items-center justify-center space-x-1 p-2 text-xs sm:text-sm">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Активные</span>
+                <span className="sm:hidden">Акт.</span>
+                <span>({userPosts?.filter(p => p.isActive).length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="sold" className="flex items-center justify-center space-x-1 p-2 text-xs sm:text-sm">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Проданные</span>
+                <span className="sm:hidden">Прод.</span>
+                <span>({userPosts?.filter(p => !p.isActive && p.soldAt).length})</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search Bar */}
+            <div className="mt-4 mb-6">
+              <div className="relative">
+                <Input
+                  placeholder="Поиск товаров..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Package className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            {["active", "sold"].map(tab => (
+              <TabsContent key={tab} value={tab} className="mt-6">
+                {filteredPosts.length === 0 ? (
+                  <div className="text-center py-8 sm:py-12">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
+                      {tab === "sold" ? "Нет проданных товаров" : "Нет активных товаров"}
+                    </h3>
+                    <p className="text-sm sm:text-base text-gray-600 px-4">
+                      {tab === "sold" ? "У продавца пока нет проданных товаров" : "У продавца пока нет активных товаров"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                    {filteredPosts.map((post) => {
+                      const mappedProduct = mapPostToProduct(post, false, isFavorited(post._id))
+                      return (
+                        <ProductCard
+                          key={post._id}
+                          product={mappedProduct}
+                          onProductClick={() => setSelectedPostId(post._id)}
+                          onToggleFavorite={handleToggleFavorite}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Product Detail Modal */}
       {selectedPostId && (
         <ProductDetail
           postId={selectedPostId}

@@ -20,6 +20,7 @@ import type * as moderation from "../moderation.js";
 import type * as posts from "../posts.js";
 import type * as userBlocks from "../userBlocks.js";
 import type * as users from "../users.js";
+import type * as yookassa from "../yookassa.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   posts: typeof posts;
   userBlocks: typeof userBlocks;
   users: typeof users;
+  yookassa: typeof yookassa;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
