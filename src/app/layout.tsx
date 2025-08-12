@@ -5,6 +5,7 @@ import { ConvexClientProvider } from './ConvexClientProvider';
 import OptimizedClientLayout from "@/components/OptimizedClientLayout"
 import { CartProvider } from "@/contexts/CartContext"
 import { Toaster } from "@/components/ui/toaster"
+import Script from "next/script"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script 
+          src="https://yookassa.ru/payouts-data/3.1.0/widget.js" 
+          strategy="beforeInteractive"
+        />
+        <Script src="https://cdn.jsdelivr.net/npm/@cdek-it/widget@3" strategy="beforeInteractive" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ConvexClientProvider>
           <CartProvider>

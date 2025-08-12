@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 import {
@@ -67,11 +67,12 @@ interface UserProfile {
 }
 
 interface SellerInfo {
-  fullName: string
-  bankName: string
-  accountNumber: string
-  iban: string
-  swift: string
+  payout_token: string
+  first6: string
+  last4: string
+  card_type: string
+  issuer_name: string
+  issuer_country: string
   submittedAt: number
 }
 
@@ -108,84 +109,61 @@ function ProfilePageContent() {
     bio: currentUser?.bio || "",
   })
 
-  const [sellerForm, setSellerForm] = useState({
-    fullName: "",
-    bankName: "",
-    accountNumber: "",
-    iban: "",
-    swift: "",
-  })
+  const [cardData, setCardData] = useState<{
+    payout_token: string
+    first6: string
+    last4: string
+    card_type: string
+    issuer_name: string
+    issuer_country: string
+  } | null>(null)
   
-  const [sellerFormErrors, setSellerFormErrors] = useState({
-    fullName: "",
-    bankName: "",
-    accountNumber: "",
-    iban: "",
-    swift: "",
-  })
+  const [widgetError, setWidgetError] = useState<string | null>(null)
 
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingSellerInfo, setIsSavingSellerInfo] = useState(false)
+  const payoutRenderedRef = useRef(false)
 
-  // Russian banks list
-  const russianBanks = [
-    'Сбербанк России',
-    'ВТБ',
-    'Газпромбанк',
-    'Альфа-Банк',
-    'Россельхозбанк',
-    'Тинькофф Банк',
-    'Московский Кредитный Банк',
-    'Райффайзенбанк',
-    'Банк ФК Открытие',
-    'Промсвязьбанк',
-    'Росбанк',  
-    'ЮниКредит Банк',
-    'Совкомбанк',
-    'Банк ВЭБ.РФ',
-    'Другой банк'
-  ]
-
-  // Validation functions
-  const validateSellerForm = () => {
-    const errors = {
-      fullName: "",
-      bankName: "",
-      accountNumber: "",
-      iban: "",
-      swift: "",
+  // YooKassa widget initialization
+  const initializePayoutWidget = () => {
+    console.log('Initializing YooKassa widget...')
+    console.log('Window PayoutsData available:', typeof window !== 'undefined' && !!(window as any).PayoutsData)
+    console.log('Account ID:', process.env.NEXT_PUBLIC_YOOKASSA_ACCOUNT_ID)
+    
+    if (typeof window !== 'undefined' && (window as any).PayoutsData) {
+      const accountId = process.env.NEXT_PUBLIC_YOOKASSA_ACCOUNT_ID
+      if (!accountId) {
+        console.error('YooKassa account ID not configured')
+        setWidgetError('Ошибка конфигурации: не указан ID аккаунта YooKassa')
+        return null
+      }
+      
+      return new (window as any).PayoutsData({
+        type: 'safedeal',
+        account_id: accountId,
+        lang: 'ru_RU', // 
+        success_callback: (data: any) => {
+          console.log('YooKassa success callback:', data)
+          setCardData({
+            payout_token: data.payout_token,
+            first6: data.first6,
+            last4: data.last4,
+            card_type: data.card_type,
+            issuer_name: data.issuer_name,
+            issuer_country: data.issuer_country,
+          })
+          setWidgetError(null)
+        },
+        error_callback: (error: any) => {
+          console.error('YooKassa widget error:', error)
+          setWidgetError('Ошибка при обработке данных карты. Попробуйте снова.')
+        }
+      })
+    } else {
+      console.error('YooKassa PayoutsData widget not available')
+      setWidgetError('Виджет YooKassa не загружен. Обновите страницу.')
     }
-
-    if (!sellerForm.fullName.trim()) {
-      errors.fullName = "Полное имя обязательно"
-    } else if (sellerForm.fullName.length < 3) {
-      errors.fullName = "Имя должно содержать минимум 3 символа"
-    }
-
-    if (!sellerForm.bankName.trim()) {
-      errors.bankName = "Выберите банк"
-    }
-
-    if (!sellerForm.accountNumber.trim()) {
-      errors.accountNumber = "Номер счета обязателен"
-    } else if (!/^\d{20}$/.test(sellerForm.accountNumber.replace(/\s/g, ''))) {
-      errors.accountNumber = "Номер счета должен содержать 20 цифр"
-    }
-
-    if (!sellerForm.iban.trim()) {
-      errors.iban = "IBAN обязателен"
-    } else if (!/^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{20}$/.test(sellerForm.iban.replace(/\s/g, ''))) {
-      errors.iban = "Неверный формат IBAN"
-    }
-
-    if (!sellerForm.swift.trim()) {
-      errors.swift = "SWIFT/BIC обязателен"
-    } else if (!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(sellerForm.swift.toUpperCase())) {
-      errors.swift = "Неверный формат SWIFT/BIC"
-    }
-
-    setSellerFormErrors(errors)
-    return Object.values(errors).every(error => !error)
+    return null
   }
 
   useEffect(() => {
@@ -197,18 +175,29 @@ function ProfilePageContent() {
         deliveryAddress: currentUser.deliveryAddress || "",
         bio: currentUser.bio || "",
       })
-      
-      if (currentUser.sellerInfo) {
-        setSellerForm({
-          fullName: currentUser.sellerInfo.fullName || "",
-          bankName: currentUser.sellerInfo.bankName || "",
-          accountNumber: currentUser.sellerInfo.accountNumber || "",
-          iban: currentUser.sellerInfo.iban || "",
-          swift: currentUser.sellerInfo.swift || "",
-        })
-      }
     }
   }, [currentUser])
+
+  useEffect(() => {
+    if (!isSellerDialogOpen) {
+      payoutRenderedRef.current = false
+      return
+    }
+    if (typeof window !== 'undefined' && (window as any).PayoutsData && !payoutRenderedRef.current) {
+      const widget = initializePayoutWidget()
+      if (widget) {
+        widget.render('yookassa-payout-form')
+          .then(() => {
+            payoutRenderedRef.current = true
+            console.log('YooKassa widget rendered successfully')
+          })
+          .catch((error: any) => {
+            console.error('Error rendering YooKassa widget:', error)
+            setWidgetError('Ошибка при загрузке формы. Попробуйте снова.')
+          })
+      }
+    }
+  }, [isSellerDialogOpen])
 
   if (!telegramUser) {
     return (
@@ -352,29 +341,29 @@ function ProfilePageContent() {
   }
 
   const handleSaveSellerInfo = async () => {
-    if (!validateSellerForm()) return
+    if (!cardData) {
+      setWidgetError('Пожалуйста, добавьте банковскую карту')
+      return
+    }
     if (!telegramUser?.userId) return
     
     setIsSavingSellerInfo(true)
     try {
       await saveSellerPayoutInfo({
         telegramId: telegramUser.userId,
-        fullName: sellerForm.fullName.trim(),
-        bankName: sellerForm.bankName.trim(),
-        accountNumber: sellerForm.accountNumber.replace(/\s/g, ''),
-        iban: sellerForm.iban.replace(/\s/g, '').toUpperCase(),
-        swift: sellerForm.swift.toUpperCase(),
+        payout_token: cardData.payout_token,
+        first6: cardData.first6,
+        last4: cardData.last4,
+        card_type: cardData.card_type,
+        issuer_name: cardData.issuer_name,
+        issuer_country: cardData.issuer_country,
       })
       setIsSellerDialogOpen(false)
-      setSellerFormErrors({
-        fullName: "",
-        bankName: "", 
-        accountNumber: "",
-        iban: "",
-        swift: "",
-      })
+      setCardData(null)
+      setWidgetError(null)
     } catch (error) {
       console.error("Error saving seller info:", error)
+      setWidgetError('Ошибка при сохранении данных карты')
     } finally {
       setIsSavingSellerInfo(false)
     }
@@ -603,11 +592,11 @@ function ProfilePageContent() {
               <div className="flex items-center space-x-2">
                 <Building className="h-4 w-4 text-gray-500" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-900">Банковские реквизиты</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-900">Банковская карта</p>
                   <p className="text-xs text-gray-600">
                     {currentUser.sellerInfo 
-                      ? `${currentUser.sellerInfo.bankName}`
-                      : 'Добавьте банковские реквизиты'
+                      ? `${currentUser.sellerInfo.card_type} ${currentUser.sellerInfo.first6}••••${currentUser.sellerInfo.last4}`
+                      : 'Добавьте банковскую карту'
                     }
                   </p>
                 </div>
@@ -633,93 +622,61 @@ function ProfilePageContent() {
                 </DialogTrigger>
                 <DialogContent className="w-[95vw] max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Банковские реквизиты</DialogTitle>
+                    <DialogTitle>Банковская карта для выплат</DialogTitle>
                     <DialogDescription>
-                      Укажите данные для получения выплат через YooKassa
+                      Добавьте банковскую карту для получения выплат через YooKassa
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div>
-                      <Label htmlFor="fullName" className="mb-1">Полное имя (как в банке)</Label>
-                      <Input
-                        id="fullName"
-                        value={sellerForm.fullName}
-                        onChange={(e) => setSellerForm({...sellerForm, fullName: e.target.value})}
-                        placeholder="Иванов Иван Иванович"
-                        className={sellerFormErrors.fullName ? "border-red-500" : ""}
+                      <p className="text-sm font-medium mb-3">Введите данные банковской карты:</p>
+                      <div 
+                        id="yookassa-payout-form" 
+                        className="border rounded-lg p-4 min-h-[200px] bg-gray-50"
                       />
-                      {sellerFormErrors.fullName && (
-                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.fullName}</p>
+                      {widgetError && (
+                        <p className="text-red-500 text-xs mt-2">{widgetError}</p>
+                      )}
+                      {cardData && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800">
+                            ✓ Карта добавлена: {cardData.card_type} {cardData.first6}••••{cardData.last4}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <Label htmlFor="bankName" className="mb-1">Название банка</Label>
-                      <Select onValueChange={(value) => setSellerForm({...sellerForm, bankName: value})} value={sellerForm.bankName}>
-                        <SelectTrigger className={`w-full ${sellerFormErrors.bankName ? "border-red-500" : ""}`}>
-                          <SelectValue placeholder="Выберите банк" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {russianBanks.map(bank => (
-                            <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {sellerFormErrors.bankName && (
-                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.bankName}</p>
-                      )}
+                    <div className="text-xs text-gray-500 bg-green-50 p-3 rounded-lg mb-3">
+                      <p className="mb-2"><CreditCard className="h-3 w-3 inline mr-1" />Поддерживаемые карты:</p>
+                      <p className="mb-1">• Российские банковские карты (Visa, MasterCard)</p>
+                      <p className="mb-1">• Карты национальной платёжной системы МИР</p>
+                      <p>• Карты, выпущенные российскими банками</p>
                     </div>
-                    <div>
-                      <Label htmlFor="accountNumber" className="mb-1">Номер счета</Label>
-                      <Input
-                        id="accountNumber"
-                        value={sellerForm.accountNumber}
-                        onChange={(e) => setSellerForm({...sellerForm, accountNumber: e.target.value})}
-                        placeholder="40817810000000000000"
-                        className={sellerFormErrors.accountNumber ? "border-red-500" : ""}
-                      />
-                      {sellerFormErrors.accountNumber && (
-                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.accountNumber}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="iban" className="mb-1">IBAN</Label>
-                      <Input
-                        id="iban"
-                        value={sellerForm.iban}
-                        onChange={(e) => setSellerForm({...sellerForm, iban: e.target.value})}
-                        placeholder="RU0000000000000000000000"
-                        className={sellerFormErrors.iban ? "border-red-500" : ""}
-                      />
-                      {sellerFormErrors.iban && (
-                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.iban}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="swift" className="mb-1">SWIFT/BIC</Label>
-                      <Input
-                        id="swift"
-                        value={sellerForm.swift}
-                        onChange={(e) => setSellerForm({...sellerForm, swift: e.target.value})}
-                        placeholder="SABRRUMM"
-                        className={sellerFormErrors.swift ? "border-red-500" : ""}
-                      />
-                      {sellerFormErrors.swift && (
-                        <p className="text-red-500 text-xs mt-1">{sellerFormErrors.swift}</p>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 bg-amber-50 p-3 rounded-lg">
+                    <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
                       <p className="mb-2"><Lock className="h-3 w-3 inline mr-1" />Безопасность данных:</p>
-                      <p className="mb-1">• Информация шифруется и хранится согласно стандартам PCI DSS</p>
-                      <p className="mb-1">• Данные используются только для выплат через YooKassa</p>
-                      <p>• Мы не имеем доступа к вашим банковским операциям</p>
+                      <p className="mb-1">• Данные карты обрабатываются по стандарту PCI DSS</p>
+                      <p className="mb-1">• YooKassa хранит данные в зашифрованном виде</p>
+                      <p className="mb-1">• Мы получаем только синоним карты для выплат</p>
+                      <p>• Полный номер карты недоступен нашему сервису</p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-                    <Button variant="outline" onClick={() => setIsSellerDialogOpen(false)} className="w-full sm:w-auto">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsSellerDialogOpen(false)
+                        setCardData(null)
+                        setWidgetError(null)
+                      }} 
+                      className="w-full sm:w-auto"
+                    >
                       Отмена
                     </Button>
-                    <Button onClick={handleSaveSellerInfo} disabled={isSavingSellerInfo} className="w-full sm:w-auto">
-                      {isSavingSellerInfo ? "Сохранение..." : "Сохранить"}
+                    <Button 
+                      onClick={handleSaveSellerInfo} 
+                      disabled={isSavingSellerInfo || !cardData} 
+                      className="w-full sm:w-auto"
+                    >
+                      {isSavingSellerInfo ? "Сохранение..." : "Сохранить карту"}
                     </Button>
                   </div>
                 </DialogContent>

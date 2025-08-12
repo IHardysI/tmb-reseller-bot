@@ -339,11 +339,12 @@ export const debugUserChatIds = query({
 export const saveSellerPayoutInfo = mutation({
   args: {
     telegramId: v.number(),
-    fullName: v.string(),
-    bankName: v.string(),
-    accountNumber: v.string(),
-    iban: v.string(),
-    swift: v.string(),
+    payout_token: v.string(),
+    first6: v.string(),
+    last4: v.string(),
+    card_type: v.string(),
+    issuer_name: v.string(),
+    issuer_country: v.string(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -357,11 +358,12 @@ export const saveSellerPayoutInfo = mutation({
 
     await ctx.db.patch(user._id, {
       sellerInfo: {
-        fullName: args.fullName,
-        bankName: args.bankName,
-        accountNumber: args.accountNumber,
-        iban: args.iban,
-        swift: args.swift,
+        payout_token: args.payout_token,
+        first6: args.first6,
+        last4: args.last4,
+        card_type: args.card_type,
+        issuer_name: args.issuer_name,
+        issuer_country: args.issuer_country,
         submittedAt: Date.now(),
       },
     });

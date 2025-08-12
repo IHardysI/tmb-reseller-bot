@@ -11,6 +11,7 @@ export const createPost = mutation({
     name: v.string(),
     brand: v.optional(v.string()),
     price: v.number(),
+    quantityTotal: v.optional(v.number()),
     condition: v.string(),
     year: v.number(),
     description: v.string(),
@@ -50,6 +51,8 @@ export const createPost = mutation({
       name: args.name,
       brand: args.brand,
       price: args.price,
+      quantityTotal: args.quantityTotal ?? 1,
+      quantityAvailable: args.quantityTotal ?? 1,
       condition: args.condition,
       year: args.year,
       description: args.description,
@@ -155,6 +158,24 @@ export const getAllActivePosts = query({
 
     return postsWithSellers;
   },
+});
+
+
+export const decrementQuantityOnPayment = mutation({
+  args: { postId: v.id("posts"), quantity: v.number() },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) throw new Error("Post not found");
+    const currentAvailable = (post as any).quantityAvailable ?? 1;
+    const newAvailable = Math.max(0, currentAvailable - Math.max(0, args.quantity));
+    const patch: any = { quantityAvailable: newAvailable, updatedAt: Date.now() };
+    if (newAvailable === 0) {
+      patch.isActive = false;
+      patch.soldAt = Date.now();
+    }
+    await ctx.db.patch(args.postId, patch);
+    return { quantityAvailable: newAvailable, isActive: patch.isActive ?? post.isActive };
+  }
 });
 
 export const getPostsByCategory = query({

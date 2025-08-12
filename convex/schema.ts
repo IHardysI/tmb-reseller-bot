@@ -34,11 +34,12 @@ export default defineSchema({
     role: v.optional(v.union(v.literal("admin"), v.literal("user"))),
     email: v.optional(v.string()),
     sellerInfo: v.optional(v.object({
-      fullName: v.string(),
-      bankName: v.string(),
-      accountNumber: v.string(),
-      iban: v.string(),
-      swift: v.string(),
+      payout_token: v.string(),
+      first6: v.string(),
+      last4: v.string(),
+      card_type: v.string(),
+      issuer_name: v.string(),
+      issuer_country: v.string(),
       submittedAt: v.number(),
     })),
   }).index("by_telegram_id", ["telegramId"])
@@ -71,6 +72,8 @@ export default defineSchema({
     name: v.string(),
     brand: v.optional(v.string()),
     price: v.number(),
+    quantityTotal: v.optional(v.number()),
+    quantityAvailable: v.optional(v.number()),
     condition: v.string(),
     year: v.number(),
     description: v.string(),
@@ -220,13 +223,21 @@ export default defineSchema({
     .index("by_warning_type", ["warningType"])
     .index("by_created_at", ["createdAt"]),
 
-  yooKassaDeals: defineTable({
-    postId: v.id("posts"),
+  orders: defineTable({
     buyerId: v.id("users"),
     sellerId: v.id("users"),
+    postId: v.id("posts"),
     chatId: v.id("chats"),
-    dealId: v.string(),
-    amount: v.object({
+    dealId: v.optional(v.string()),
+    status: v.union(
+      v.literal("created"),
+      v.literal("deal_created"),
+      v.literal("payment_pending"),
+      v.literal("paid"),
+      v.literal("completed"),
+      v.literal("canceled")
+    ),
+    totalAmount: v.object({
       value: v.string(),
       currency: v.string(),
     }),
@@ -238,135 +249,20 @@ export default defineSchema({
       value: v.string(),
       currency: v.string(),
     }),
-    status: v.union(
-      v.literal("opened"),
-      v.literal("closed"),
-      v.literal("canceled")
-    ),
     description: v.string(),
-    metadata: v.object({
+    metadata: v.optional(v.object({
       orderId: v.string(),
       postName: v.string(),
-    }),
-    balance: v.optional(v.object({
-      value: v.string(),
-      currency: v.string(),
-    })),
-    payoutBalance: v.optional(v.object({
-      value: v.string(),
-      currency: v.string(),
     })),
     createdAt: v.number(),
     updatedAt: v.number(),
-    expiresAt: v.number(),
-    closedAt: v.optional(v.number()),
-    canceledAt: v.optional(v.number()),
-    cancelReason: v.optional(v.string()),
-  }).index("by_post", ["postId"])
-    .index("by_buyer", ["buyerId"])
+    expiresAt: v.optional(v.number()),
+  }).index("by_buyer", ["buyerId"])
     .index("by_seller", ["sellerId"])
+    .index("by_post", ["postId"])
     .index("by_chat", ["chatId"])
     .index("by_deal_id", ["dealId"])
     .index("by_status", ["status"])
     .index("by_created_at", ["createdAt"]),
 
-  yooKassaPayments: defineTable({
-    dealId: v.id("yooKassaDeals"),
-    paymentId: v.string(),
-    buyerId: v.id("users"),
-    amount: v.object({
-      value: v.string(),
-      currency: v.string(),
-    }),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("waiting_for_auth"),
-      v.literal("succeeded"),
-      v.literal("canceled")
-    ),
-    paid: v.boolean(),
-    confirmationUrl: v.optional(v.string()),
-    description: v.string(),
-    metadata: v.object({
-      orderId: v.string(),
-      dealId: v.string(),
-    }),
-    paymentMethod: v.optional(v.object({
-      type: v.string(),
-      card: v.optional(v.object({
-        first6: v.string(),
-        last4: v.string(),
-        expiryMonth: v.string(),
-        expiryYear: v.string(),
-        cardType: v.string(),
-        issuerCountry: v.string(),
-      })),
-      title: v.string(),
-    })),
-    capturedAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_deal", ["dealId"])
-    .index("by_payment_id", ["paymentId"])
-    .index("by_buyer", ["buyerId"])
-    .index("by_status", ["status"])
-    .index("by_created_at", ["createdAt"]),
-
-  yooKassaPayouts: defineTable({
-    dealId: v.id("yooKassaDeals"),
-    payoutId: v.string(),
-    sellerId: v.id("users"),
-    amount: v.object({
-      value: v.string(),
-      currency: v.string(),
-    }),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("succeeded"),
-      v.literal("canceled")
-    ),
-    payoutToken: v.string(),
-    description: v.string(),
-    metadata: v.object({
-      orderId: v.string(),
-      dealId: v.string(),
-    }),
-    payoutDestination: v.optional(v.object({
-      type: v.string(),
-      card: v.optional(v.object({
-        first6: v.string(),
-        last4: v.string(),
-        cardType: v.string(),
-        issuerCountry: v.string(),
-        issuerName: v.string(),
-      })),
-    })),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    succeededAt: v.optional(v.number()),
-    canceledAt: v.optional(v.number()),
-    cancelReason: v.optional(v.string()),
-  }).index("by_deal", ["dealId"])
-    .index("by_payout_id", ["payoutId"])
-    .index("by_seller", ["sellerId"])
-    .index("by_status", ["status"])
-    .index("by_created_at", ["createdAt"]),
-
-  sellerPayoutCards: defineTable({
-    sellerId: v.id("users"),
-    payoutToken: v.string(),
-    cardInfo: v.object({
-      first6: v.string(),
-      last4: v.string(),
-      cardType: v.string(),
-      issuerCountry: v.string(),
-      issuerName: v.optional(v.string()),
-    }),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_seller", ["sellerId"])
-    .index("by_token", ["payoutToken"])
-    .index("by_active", ["isActive"])
-    .index("by_created_at", ["createdAt"]),
 }); 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Trash2, Lock, Star, Award, MessageCircle, MapPin } from "lucide-react"
+import { Trash2, Lock, Star, Award, MessageCircle, MapPin, ShoppingCart } from "lucide-react"
 
 interface CartItemData {
   id: string
@@ -30,10 +30,11 @@ interface CartItemProps {
   onUpdateQuantity: (id: string, quantity: number) => void
   onRemove: (id: string) => void
   onContactSeller: (itemId: string) => void
+  onBuyItem: (itemId: string) => void
   showSeparator?: boolean
 }
 
-export default function CartItemComponent({ item, onUpdateQuantity, onRemove, onContactSeller, showSeparator }: CartItemProps) {
+export default function CartItemComponent({ item, onUpdateQuantity, onRemove, onContactSeller, onBuyItem, showSeparator }: CartItemProps) {
   const getTrustIcon = (trust: string) => {
     const colors = {
       bronze: "text-amber-600",
@@ -117,10 +118,12 @@ export default function CartItemComponent({ item, onUpdateQuantity, onRemove, on
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs bg-transparent" onClick={() => onContactSeller(item.id)}>
-                  <MessageCircle className="h-3 w-3 mr-1" />
-                  Написать
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" className="text-xs bg-transparent" onClick={() => onContactSeller(item.id)}>
+                    <MessageCircle className="h-3 w-3 mr-1" />
+                    Написать
+                  </Button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t">
@@ -128,9 +131,18 @@ export default function CartItemComponent({ item, onUpdateQuantity, onRemove, on
                   <span className="text-xl lg:text-2xl font-bold text-gray-900">{(item.price * item.quantity).toLocaleString()} ₽</span>
                   <Lock className="h-4 w-4 text-green-600" />
                 </div>
-                {item.originalPrice && (
-                  <span className="text-sm text-gray-400 line-through">{(item.originalPrice * item.quantity).toLocaleString()} ₽</span>
-                )}
+                <div className="flex items-center space-x-2">
+                  {item.originalPrice && (
+                    <span className="text-sm text-gray-400 line-through">{(item.originalPrice * item.quantity).toLocaleString()} ₽</span>
+                  )}
+                  <Button 
+                    onClick={() => onBuyItem(item.id)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-medium"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Купить
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

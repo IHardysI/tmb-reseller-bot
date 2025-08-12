@@ -20,6 +20,7 @@ import type * as moderation from "../moderation.js";
 import type * as posts from "../posts.js";
 import type * as userBlocks from "../userBlocks.js";
 import type * as users from "../users.js";
+import type * as utils_idempotentecyGenerator from "../utils/idempotentecyGenerator.js";
 import type * as yookassa from "../yookassa.js";
 
 /**
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   posts: typeof posts;
   userBlocks: typeof userBlocks;
   users: typeof users;
+  "utils/idempotentecyGenerator": typeof utils_idempotentecyGenerator;
   yookassa: typeof yookassa;
 }>;
 export declare const api: FilterApi<

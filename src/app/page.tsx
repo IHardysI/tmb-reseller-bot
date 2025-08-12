@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -79,23 +79,76 @@ function MarketplaceContent() {
   
   const filters = useFilters()
   const [editingPost, setEditingPost] = useState<Product | null>(null)
+  const [priceReady, setPriceReady] = useState(false)
+  const [yearReady, setYearReady] = useState(false)
+  const lastPriceDefaultRef = useRef<number[] | null>(null)
+  const lastYearDefaultRef = useRef<number[] | null>(null)
 
-  const handlePostCreated = () => {
-    console.log("Post created successfully!")
+  const handlePostCreated = (_post: {
+    id: string
+    name: string
+    brand: string
+    price: number
+    year: number
+    description: string
+    images: string[]
+    category: string
+    subcategory?: string
+  }) => {
+    // Nudge UI to recompute while Convex live query updates stream in
+    setSortBy((prev) => prev)
   }
 
   // Initialize ranges when data loads
   useEffect(() => {
-    if (priceRangeData && filters.priceRange.length === 0) {
-      filters.setPriceRange([priceRangeData.min, priceRangeData.max])
+    if (!priceRangeData) return
+    const newDefault: number[] = [priceRangeData.min, priceRangeData.max]
+    const current = filters.priceRange
+    const lastDefault = lastPriceDefaultRef.current
+
+    if (current.length !== 2) {
+      filters.setPriceRange(newDefault)
+      lastPriceDefaultRef.current = newDefault
+      setPriceReady(true)
+      return
     }
-  }, [priceRangeData, filters.priceRange.length])
+
+    const differsFromNew = current[0] !== newDefault[0] || current[1] !== newDefault[1]
+    const isAtLastDefault = !!lastDefault && current[0] === lastDefault[0] && current[1] === lastDefault[1]
+    // Only update when it actually differs AND user hasn't customized away from the last default
+    if (differsFromNew && (isAtLastDefault || !lastDefault)) {
+      filters.setPriceRange(newDefault)
+      lastPriceDefaultRef.current = newDefault
+    } else if (!lastDefault) {
+      // Initialize last default for future comparisons
+      lastPriceDefaultRef.current = newDefault
+    }
+    setPriceReady(true)
+  }, [priceRangeData, filters.priceRange])
 
   useEffect(() => {
-    if (yearRangeData && filters.yearRange.length === 0) {
-      filters.setYearRange([yearRangeData.min, yearRangeData.max])
+    if (!yearRangeData) return
+    const newDefault: number[] = [yearRangeData.min, yearRangeData.max]
+    const current = filters.yearRange
+    const lastDefault = lastYearDefaultRef.current
+
+    if (current.length !== 2) {
+      filters.setYearRange(newDefault)
+      lastYearDefaultRef.current = newDefault
+      setYearReady(true)
+      return
     }
-  }, [yearRangeData, filters.yearRange.length])
+
+    const differsFromNew = current[0] !== newDefault[0] || current[1] !== newDefault[1]
+    const isAtLastDefault = !!lastDefault && current[0] === lastDefault[0] && current[1] === lastDefault[1]
+    if (differsFromNew && (isAtLastDefault || !lastDefault)) {
+      filters.setYearRange(newDefault)
+      lastYearDefaultRef.current = newDefault
+    } else if (!lastDefault) {
+      lastYearDefaultRef.current = newDefault
+    }
+    setYearReady(true)
+  }, [yearRangeData, filters.yearRange])
 
   const filteredAndSortedProducts = useMemo(() => {
     if (!allPosts) return []
@@ -146,15 +199,15 @@ function MarketplaceContent() {
       filtered = filtered.filter(product => filters.selectedConditions.includes(product.condition))
     }
 
-    // Apply price range filter
-    if (filters.priceRange.length === 2) {
+    // Apply price range filter (only after initialized)
+    if (priceReady && filters.priceRange.length === 2) {
       filtered = filtered.filter(product => 
         product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
       )
     }
 
-    // Apply year range filter
-    if (filters.yearRange.length === 2) {
+    // Apply year range filter (only after initialized)
+    if (yearReady && filters.yearRange.length === 2) {
       filtered = filtered.filter(product => 
         product.year >= filters.yearRange[0] && product.year <= filters.yearRange[1]
       )

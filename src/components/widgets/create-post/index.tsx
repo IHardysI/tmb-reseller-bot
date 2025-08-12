@@ -9,17 +9,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
-import { X, Plus, Camera, Upload } from "lucide-react"
+import { X, Plus, Camera, Loader2 } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useTelegramUser } from "@/hooks/useTelegramUser"
 import { Id } from "../../../../convex/_generated/dataModel"
 import Image from "next/image"
+import { PLATFORM_FEE_RATE } from "@/config/fees"
 
 interface AddItemDialogProps {
   isOpen: boolean
   onClose: () => void
-  onPostCreated?: () => void
+  onPostCreated?: (post: {
+    id: string
+    name: string
+    brand: string
+    price: number
+    year: number
+    description: string
+    images: string[]
+    category: string
+    subcategory?: string
+  }) => void
   editingPost?: {
     id: string
     name: string
@@ -39,6 +50,7 @@ interface ItemFormData {
   name: string
   brand: string | null
   price: string
+  quantityTotal?: string
   condition: string
   year: string
   description: string
@@ -77,6 +89,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
     name: "",
     brand: null,
     price: "",
+    quantityTotal: "1",
     condition: "",
     year: "",
     description: "",
@@ -324,6 +337,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
           name: formData.name,
           brand: formData.brand ?? undefined,
           price: parseInt(formData.price),
+          quantityTotal: Math.max(1, parseInt(formData.quantityTotal || '1')),
           condition: formData.condition,
           year: parseInt(formData.year),
           description: formData.description,
@@ -334,7 +348,17 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
         })
         console.log("Post created successfully with ID:", postId)
         
-        onPostCreated?.()
+        onPostCreated?.({
+          id: postId as unknown as string,
+          name: formData.name,
+          brand: (formData.brand && formData.brand.trim() !== "") ? formData.brand : "Без бренда",
+          price: parseInt(formData.price),
+          year: parseInt(formData.year),
+          description: formData.description,
+          images: formData.images.map(img => img.preview).slice(0, 1),
+          category: formData.category,
+          subcategory: formData.subcategory || undefined,
+        })
       }
       
       onClose()
@@ -526,7 +550,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
 
                   <div className="space-y-4">
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="price">Цена продажи (₽) *</Label>
+                      <Label htmlFor="price">Желаемая сумма к получению (₽) *</Label>
                       <Input
                         id="price"
                         type="number"
@@ -540,6 +564,27 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                           minWidth: '0'
                         }}
                       />
+                      <div className="text-xs text-gray-600 space-y-1">
+                        <p>
+                          Комиссия платформы {Math.round(PLATFORM_FEE_RATE * 100)}%: {formData.price ? Math.round(Number(formData.price) * PLATFORM_FEE_RATE).toLocaleString() : 0} ₽
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="qty">Количество в наличии *</Label>
+                            <Input
+                              id="qty"
+                              type="number"
+                              min={1}
+                              placeholder="1"
+                              value={formData.quantityTotal ?? ""}
+                              onChange={(e) => handleInputChange("quantityTotal", e.target.value)}
+                            />
+                          </div>
+                          <div className="pt-6 text-gray-700">
+                            <p>Цена для покупателя: {formData.price ? (Math.round(Number(formData.price) * PLATFORM_FEE_RATE) + Number(formData.price)).toLocaleString() : 0} ₽ за единицу</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -590,7 +635,15 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                   <div className="space-y-6">
                     <div className="flex flex-col gap-2">
                       <Label>Фотографии товара *</Label>
-                      <p className="text-xs text-gray-500 mb-3">Добавьте минимум 1 фотографию (макс. 6)</p>
+                      <p className="text-xs text-gray-500 mb-1">Добавьте минимум 1 фотографию (макс. 6)</p>
+                      {(formData.images.filter(img => (img as any).uploading).length > 0) && (
+                        <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>
+                            Загрузка фото... ({formData.images.filter(img => (img as any).uploading).length})
+                          </span>
+                        </div>
+                      )}
 
                       <input
                         ref={fileInputRef}
@@ -613,7 +666,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                             />
                             {image.uploading && (
                               <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
-                                <Upload className="h-6 w-6 text-white animate-pulse" />
+                                <Loader2 className="h-6 w-6 text-white animate-spin" />
                               </div>
                             )}
                             <Button
@@ -631,10 +684,13 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                         {formData.images.length < 6 && (
                           <button
                             onClick={handleImageUpload}
-                            className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
+                            disabled={formData.images.some(img => (img as any).uploading)}
+                            className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <Camera className="h-6 w-6 text-gray-400 mb-1" />
-                            <span className="text-xs text-gray-500">Добавить фото</span>
+                            <span className="text-xs text-gray-500">
+                              {formData.images.some(img => (img as any).uploading) ? 'Загрузка...' : 'Добавить фото'}
+                            </span>
                           </button>
                         )}
                       </div>
@@ -770,6 +826,18 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                             <span className="text-gray-600 flex-shrink-0">Цена:</span>
                             <span className="font-medium text-right min-w-0">
                               {formData.price ? `${Number.parseInt(formData.price).toLocaleString()} ₽` : "-"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-gray-600 flex-shrink-0">Количество:</span>
+                            <span className="font-medium text-right min-w-0">
+                              {Number.parseInt(formData.quantityTotal || '1')} шт.
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-gray-600 flex-shrink-0">Цена для покупателя:</span>
+                            <span className="font-medium text-right min-w-0">
+                              {formData.price ? (Math.round(Number(formData.price) * PLATFORM_FEE_RATE) + Number(formData.price)).toLocaleString() : 0} ₽ за единицу
                             </span>
                           </div>
                           <div className="flex justify-between items-start gap-2">

@@ -123,15 +123,21 @@ export function AppSidebar({
     setSelectedBrands([])
   }
 
-  const hasActiveFilters = useMemo(() => 
-    selectedBrands.length > 0 ||
-    selectedConditions.length > 0 ||
-    selectedCategories.length > 0 ||
-    (priceRange.length === 2 && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1])) ||
-    (yearRange.length === 2 && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1])) ||
-    selectedCity.length > 0 ||
-    distanceRadius[0] !== 5
-  , [selectedBrands.length, selectedConditions.length, selectedCategories.length, priceRange, yearRange, selectedCity.length, distanceRadius, defaultPriceRange, defaultYearRange])
+  const hasActiveFilters = useMemo(() => {
+    const priceInitialized = priceRange.length === 2 && !!priceRangeData
+    const yearInitialized = yearRange.length === 2 && !!yearRangeData
+    const priceActive = priceInitialized && (priceRange[0] > defaultPriceRange[0] || priceRange[1] < defaultPriceRange[1])
+    const yearActive = yearInitialized && (yearRange[0] > defaultYearRange[0] || yearRange[1] < defaultYearRange[1])
+    return (
+      selectedBrands.length > 0 ||
+      selectedConditions.length > 0 ||
+      selectedCategories.length > 0 ||
+      priceActive ||
+      yearActive ||
+      selectedCity.length > 0 ||
+      distanceRadius[0] !== 5
+    )
+  }, [selectedBrands.length, selectedConditions.length, selectedCategories.length, priceRange, yearRange, selectedCity.length, distanceRadius, defaultPriceRange, defaultYearRange, priceRangeData, yearRangeData])
 
   const filteredBrands = useMemo(() => {
     if (brandSearch) {

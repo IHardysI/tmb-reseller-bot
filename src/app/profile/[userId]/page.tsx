@@ -267,30 +267,7 @@ export default function UserProfilePage({ params, searchParams }: UserProfilePag
         </Card>
       </div>
 
-      {/* Trust and Safety Info (Public) */}
-      <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-blue-200 mb-4 sm:mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="rounded-full p-2 bg-blue-100">
-                <Shield className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">
-                  Безопасные сделки через YooKassa
-                </p>
-                <p className="text-sm text-gray-600">
-                  Все платежи защищены эскроу-системой для безопасности покупателей
-                </p>
-              </div>
-            </div>
-            <Badge className="bg-green-100 text-green-700 border-green-200">
-              Активно
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
+     
       {/* Products Section */}
       <Card>
         <CardHeader className="pb-4">
