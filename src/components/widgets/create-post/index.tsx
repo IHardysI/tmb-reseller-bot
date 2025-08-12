@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -82,6 +82,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
   const updatePostWithMixedImages = useMutation(api.posts.updatePostWithMixedImages)
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl)
   const brands = useQuery(api.posts.getAllBrands) || []
+  const stableBrands = useMemo(() => brands || [], [brands])
   const categoryTree = useQuery(api.categories.getCategoryTree) || []
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -145,10 +146,10 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
 
   // Handle custom brand visibility when brands data changes
   useEffect(() => {
-    if (editingPost && brands.length > 0) {
-      setShowCustomBrand(editingPost.brand !== "Без бренда" && !brands.includes(editingPost.brand))
+    if (editingPost && stableBrands.length > 0) {
+      setShowCustomBrand(editingPost.brand !== "Без бренда" && !stableBrands.includes(editingPost.brand))
     }
-  }, [editingPost, brands])
+  }, [editingPost, stableBrands])
 
   const handleInputChange = (field: keyof ItemFormData, value: string) => {
     setFormData((prev) => ({
@@ -459,7 +460,7 @@ export default function AddItemDialog({ isOpen, onClose, onPostCreated, editingP
                           <SelectContent>
                             <SelectItem value="no-brand">Без бренда</SelectItem>
                             <SelectItem value="custom">Другой бренд</SelectItem>
-                            {brands.map((brand) => (
+                            {stableBrands.map((brand) => (
                               <SelectItem key={brand} value={brand}>
                                 {brand}
                               </SelectItem>

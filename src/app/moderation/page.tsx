@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -854,10 +855,13 @@ export default function ModerationPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center space-x-3">
-                        <img 
+                        <Image 
                           src={selectedCase.post?.image || "/placeholder.svg"} 
-                          alt={selectedCase.post?.name}
+                          alt={selectedCase.post?.name || ""}
+                          width={48}
+                          height={48}
                           className="w-12 h-12 object-cover rounded"
+                          unoptimized
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{selectedCase.post?.name}</p>

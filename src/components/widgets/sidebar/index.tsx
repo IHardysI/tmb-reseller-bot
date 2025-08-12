@@ -81,6 +81,8 @@ export function AppSidebar({
   const popularBrands = useQuery(api.posts.getPopularBrands) || []
   const priceRangeData = useQuery(api.posts.getPriceRange)
   const yearRangeData = useQuery(api.posts.getYearRange)
+  const stableBrands = useMemo(() => brands || [], [brands])
+  const stablePopularBrands = useMemo(() => popularBrands || [], [popularBrands])
   const categoryTree = useQuery(api.categories.getCategoryTree) || []
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [brandSearch, setBrandSearch] = useState("")
@@ -116,8 +118,12 @@ export function AppSidebar({
   
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  const defaultPriceRange = priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
-  const defaultYearRange = yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
+  const defaultPriceRange = useMemo(() => (
+    priceRangeData ? [priceRangeData.min, priceRangeData.max] : [0, 500000]
+  ), [priceRangeData])
+  const defaultYearRange = useMemo(() => (
+    yearRangeData ? [yearRangeData.min, yearRangeData.max] : [2015, 2024]
+  ), [yearRangeData])
 
   const clearSelectedBrands = () => {
     setSelectedBrands([])
@@ -141,13 +147,13 @@ export function AppSidebar({
 
   const filteredBrands = useMemo(() => {
     if (brandSearch) {
-      return brands.filter(brand => 
+      return stableBrands.filter(brand => 
         brand.toLowerCase().includes(brandSearch.toLowerCase())
       ).slice(0, 5)
     } else {
-      return brands.slice(0, 3)
+      return stableBrands.slice(0, 3)
     }
-  }, [brands, brandSearch])
+  }, [stableBrands, brandSearch])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand])
@@ -395,7 +401,7 @@ export function AppSidebar({
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {filteredBrands.length > 0 ? (
                       filteredBrands.map((brand) => {
-                        const brandData = popularBrands.find(b => b.name === brand);
+                        const brandData = stablePopularBrands.find(b => b.name === brand);
                         return (
                           <div key={brand} className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-1">

@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ImageIcon, FileText, Clock, Trash2, Ban, Flag, Check } from "lucide-react"
+import Image from "next/image"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -164,10 +165,13 @@ export default function ChatItem({
         >
           <div className="flex space-x-3">
             <div className="relative flex-shrink-0">
-              <img
+              <Image
                 src={itemImage || "/placeholder.svg"}
                 alt={itemName}
+                width={48}
+                height={48}
                 className="w-12 h-12 object-cover rounded-xl transition-all duration-300 group-hover:shadow-md group-hover:scale-110"
+                unoptimized
               />
               {userRole === "seller" && (
                 <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-125 group-hover:bg-green-400">

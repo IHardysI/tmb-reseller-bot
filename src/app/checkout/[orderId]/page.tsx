@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -71,7 +72,7 @@ export default function CheckoutPage() {
     }
     if (!city && currentUser.city) setCity(currentUser.city)
     if (!address && currentUser.deliveryAddress) setAddress(currentUser.deliveryAddress)
-  }, [currentUser])
+  }, [currentUser, buyerName, city, address])
 
   // Debug: log delivery method selection
   useEffect(() => {
@@ -208,11 +209,13 @@ export default function CheckoutPage() {
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 <div className="relative h-20 w-20 rounded-lg overflow-hidden border">
-                  {/* Use native img for Next.js consistency */}
-                  <img
+                  <Image
                     src={item.image || "/placeholder.svg?height=160&width=160&query=product"}
                     alt={item.name}
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover"
+                    unoptimized
                   />
                 </div>
                 <div className="flex-1 min-w-0">

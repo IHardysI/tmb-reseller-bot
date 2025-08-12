@@ -44,14 +44,26 @@ interface UserData {
   unblockReason?: string
   role?: 'admin' | 'user'
   email?: string
-  sellerInfo?: {
-    fullName: string
-    bankName: string
-    accountNumber: string
-    iban: string
-    swift: string
-    submittedAt: number
-  }
+  sellerInfo?: (
+    {
+      fullName: string
+      bankName: string
+      accountNumber: string
+      iban: string
+      swift: string
+      submittedAt: number
+    }
+    |
+    {
+      payout_token: string
+      first6: string
+      last4: string
+      card_type: string
+      issuer_name: string
+      issuer_country: string
+      submittedAt: number
+    }
+  )
 }
 
 interface UserStore {

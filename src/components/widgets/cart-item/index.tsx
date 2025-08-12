@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Trash2, Lock, Star, Award, MessageCircle, MapPin, ShoppingCart } from "lucide-react"
+import Image from "next/image"
 
 interface CartItemData {
   id: string
@@ -49,19 +50,25 @@ export default function CartItemComponent({ item, onUpdateQuantity, onRemove, on
       <CardContent className="p-4 lg:p-6">
         <div className="flex flex-col gap-4">
           <div className="w-full sm:hidden">
-            <img
+            <Image
               src={item.image || "/placeholder.svg"}
               alt={item.name}
+              width={800}
+              height={600}
               className="w-full h-48 object-cover rounded-xl border"
+              unoptimized
             />
           </div>
 
           <div className="flex gap-4">
             <div className="hidden sm:block flex-shrink-0">
-              <img
+              <Image
                 src={item.image || "/placeholder.svg"}
                 alt={item.name}
+                width={128}
+                height={128}
                 className="w-28 h-28 lg:w-32 lg:h-32 object-cover rounded-xl border"
+                unoptimized
               />
             </div>
 

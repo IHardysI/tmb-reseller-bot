@@ -68,5 +68,5 @@ export function useOptimizedTelegramUser() {
     role: userData?.role,
     email: userData?.email,
     sellerInfo: userData?.sellerInfo
-  }), [userData, isInitialized, isLoading, telegramUser]);
+  }), [userData, isInitialized, isLoading, telegramUser, isOnboardingCompleted, isUserAdmin, isUserAvailable, isUserBlocked]);
 } 

@@ -124,7 +124,7 @@ function MarketplaceContent() {
       lastPriceDefaultRef.current = newDefault
     }
     setPriceReady(true)
-  }, [priceRangeData, filters.priceRange])
+  }, [priceRangeData, filters.priceRange, filters])
 
   useEffect(() => {
     if (!yearRangeData) return
@@ -148,8 +148,9 @@ function MarketplaceContent() {
       lastYearDefaultRef.current = newDefault
     }
     setYearReady(true)
-  }, [yearRangeData, filters.yearRange])
+  }, [yearRangeData, filters.yearRange, filters])
 
+  const telegramId = telegramUser?.userId
   const filteredAndSortedProducts = useMemo(() => {
     if (!allPosts) return []
     
@@ -177,7 +178,7 @@ function MarketplaceContent() {
       sellerCity: post.sellerCity,
       likesCount: post.likesCount,
       views: post.views,
-      isOwned: currentUser && post.telegramId === telegramUser?.userId || false,
+       isOwned: currentUser && post.telegramId === telegramId || false,
     }))
 
     // Apply search filter
@@ -237,7 +238,7 @@ function MarketplaceContent() {
     }
 
     return filtered
-  }, [allPosts, searchQuery, filters.selectedBrands, filters.selectedConditions, filters.priceRange, filters.yearRange, filters.selectedCategories, sortBy, currentUser])
+  }, [allPosts, searchQuery, filters.selectedBrands, filters.selectedConditions, filters.priceRange, filters.yearRange, filters.selectedCategories, sortBy, currentUser, priceReady, yearReady, telegramId])
 
   const toggleFavorite = async (productId: string) => {
     if (!telegramUser?.userId) return

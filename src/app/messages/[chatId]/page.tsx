@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect, use } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
@@ -460,7 +461,7 @@ export default function ChatPage({ params }: ChatPageProps) {
     if (chatData?.messages && chatData.messages.length > 0) {
       scrollToBottom()
     }
-  }, [chatData?.id])
+  }, [chatData?.id, chatData?.messages])
 
   // Mark messages as read when chat is opened
   useEffect(() => {
@@ -472,7 +473,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         console.error("Error marking messages as read:", error)
       })
     }
-  }, [chatData?.id, currentUser?._id])
+  }, [chatData?.id, currentUser?._id, markMessagesAsRead])
 
   // Mark messages as read when user is actively viewing the chat
   useEffect(() => {
@@ -495,7 +496,7 @@ export default function ChatPage({ params }: ChatPageProps) {
 
       return () => clearInterval(interval)
     }
-  }, [chatData?.id, currentUser?._id])
+  }, [chatData?.id, currentUser?._id, markMessagesAsRead, updateLastOnline])
 
   // Update last online status when chat is opened
   useEffect(() => {
@@ -506,7 +507,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         console.error("Error updating last online:", error)
       })
     }
-  }, [currentUser?._id])
+  }, [currentUser?._id, updateLastOnline])
 
   if (!telegramUser) {
     return (
@@ -612,10 +613,13 @@ export default function ChatPage({ params }: ChatPageProps) {
       <Card className="mx-4 mt-4 mb-2 flex-shrink-0 py-0! cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { setSelectedProductId(chatData.itemId); setProductDialogOpen(true); }}>
         <CardContent className="p-4">
           <div className="flex items-center space-x-3">
-            <img
-              src={chatData.itemImage}
+            <Image
+              src={chatData.itemImage || "/placeholder.svg"}
               alt={chatData.itemName}
+              width={48}
+              height={48}
               className="w-12 h-12 rounded-lg object-cover"
+              unoptimized
             />
             <div className="flex-1">
               <h3 className="font-medium text-sm">{chatData.itemName}</h3>
@@ -704,11 +708,14 @@ export default function ChatPage({ params }: ChatPageProps) {
 
                       {message.type === "image" && (
                         <div className="space-y-2">
-                          <img
+                          <Image
                             src={message.fileUrl || "/placeholder.svg"}
-                            alt={message.fileName}
+                            alt={message.fileName || "image"}
+                            width={800}
+                            height={600}
                             className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
                             onClick={() => handleImageClick(message.fileUrl || "")}
+                            unoptimized
                           />
                           {message.content && message.content !== `Прикреплен файл: ${message.fileName}` && (
                             <p className="text-sm leading-relaxed">{message.content}</p>

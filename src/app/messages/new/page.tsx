@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
@@ -234,10 +235,13 @@ export default function NewChatPage() {
             </div>
             
             <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <img
+              <Image
                 src={post.images[0] || "/placeholder.svg"}
                 alt={post.name}
+                width={48}
+                height={48}
                 className="w-12 h-12 rounded-lg object-cover"
+                unoptimized
               />
               <div className="flex-1">
                 <h4 className="font-medium text-sm">{post.name}</h4>
