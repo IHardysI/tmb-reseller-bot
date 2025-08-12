@@ -98,7 +98,7 @@ export default function CheckoutPage() {
       if (!apiKey) console.error('[CDEK] Missing NEXT_PUBLIC_YANDEX_MAPS_API_KEY')
       if (!servicePath) console.error('[CDEK] Missing servicePath')
       console.log('[CDEK] init', { apiKey: !!apiKey, servicePath })
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line no-unused-vars
       const widgetInstance = new WidgetCtor({
         root: 'cdek-widget-container',
         apiKey: apiKey || '',
