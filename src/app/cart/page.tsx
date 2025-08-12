@@ -24,8 +24,6 @@ export default function CartPage() {
     telegramUser ? { telegramId: telegramUser.userId || 0 } : "skip"
   )
 
-  console.log(telegramUser)
-
   const handleMessage = async (itemId: string) => {
     if (!currentUser) return
     

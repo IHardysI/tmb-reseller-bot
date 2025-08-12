@@ -161,24 +161,9 @@ export const useUserStore = create<UserStore>()(
       },
       
       clearUserDataOnly: () => {
-        console.log('🧹 clearUserDataOnly called')
-        const stateBefore = get()
-        console.log('📊 State before clear:', { 
-          hasUserData: !!stateBefore.userData, 
-          hasTelegramUser: !!stateBefore.telegramUser,
-          isInitialized: stateBefore.isInitialized 
-        })
-        
         set({ 
           userData: null,  
           isLoading: false 
-        })
-        
-        const stateAfter = get()
-        console.log('📊 State after clear:', { 
-          hasUserData: !!stateAfter.userData, 
-          hasTelegramUser: !!stateAfter.telegramUser,
-          isInitialized: stateAfter.isInitialized 
         })
         // Keep telegramUser and isInitialized - just clear the database user data
       },

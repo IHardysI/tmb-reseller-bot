@@ -65,9 +65,7 @@ export async function mockEnv(): Promise<void> {
         ]),
       });
   
-      console.info(
-        '⚠️ Development mode: Using mock Telegram environment. This data is fake and only for local testing.'
-      );
+      
     }
   });
 }

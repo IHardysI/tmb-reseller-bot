@@ -43,8 +43,6 @@ bot.on('polling_error', (error: any) => {
 bot.on('error', (error: any) => {
   console.error('Bot error:', error);
 });
-
-console.log('🤖 Bot is running...');
-console.log('📱 Mini App URL:', appUrl);
+ 
 
 export default bot; 

@@ -219,12 +219,7 @@ export default function ModerationPage() {
     );
   }
 
-  // Debug case counts
-  console.log("CURRENT CASE COUNTS:");
-  console.log("- Active cases:", activeCases?.length || 0);
-  console.log("- Resolved cases:", resolvedCases?.length || 0);
-  console.log("- Active case IDs:", activeCases?.map(c => c._id) || []);
-  console.log("- Resolved case IDs:", resolvedCases?.map(c => c._id) || []);
+  
 
 
 
@@ -273,7 +268,7 @@ export default function ModerationPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Blocking user:", user.id, "for case:", selectedCase?._id);
+      
       const selectedReason = BLOCK_REASONS.find(r => r.value === selectedBlockReason);
       const result = await blockUserMutation({
         userId: user.id,
@@ -282,7 +277,7 @@ export default function ModerationPage() {
         caseId: selectedCase?._id,
       });
       
-      console.log("User blocked, result:", result);
+      
       
       // Close block dialog but keep case dialog open for manual case closure
       setShowBlockDialog(false);
@@ -315,7 +310,7 @@ export default function ModerationPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Sending warning for case:", selectedCase._id);
+      
       const selectedReason = WARNING_REASONS.find(r => r.value === selectedWarningReason);
       const result = await sendWarningMutation({
         caseId: selectedCase._id,
@@ -323,7 +318,7 @@ export default function ModerationPage() {
         reason: selectedReason?.label || selectedWarningReason,
       });
       
-      console.log("Warning sent, result:", result);
+      
       
       // Wait a moment for the query to refresh before closing
       setTimeout(() => {
@@ -353,7 +348,7 @@ export default function ModerationPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Dismissing case:", selectedCase._id);
+      
       const selectedReason = DISMISS_REASONS.find(r => r.value === selectedDismissReason);
       const result = await resolveCaseMutation({
         caseId: selectedCase._id,
@@ -362,7 +357,7 @@ export default function ModerationPage() {
         reason: selectedReason?.label || selectedDismissReason,
       });
       
-      console.log("Case dismissed, result:", result);
+      
       
       // Wait a moment for the query to refresh before closing
       setTimeout(() => {

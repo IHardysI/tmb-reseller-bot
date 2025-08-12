@@ -24,46 +24,32 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
   } = useUserStore()
 
   useEffect(() => {
-    console.log('🔍 AuthGuard check:', { isInitialized, isLoading, hasUser: !!telegramUser, hasUserData: !!userData, pathname })
-    
-    // Don't redirect if already on login or blocked pages
     if (pathname === '/auth/login' || pathname === '/blocked') {
-      console.log('🚪 Already on auth/login or blocked page - skipping redirect logic')
       return
     }
-    
     if (isInitialized && !isLoading) {
-      // If no Telegram user is available, redirect to login
       if (!isUserAvailable() || !telegramUser) {
-        console.log('❌ No Telegram user available, redirecting to login')
         try {
           router.push('/auth/login')
         } catch (error) {
-          console.log('Router failed, using window.location')
           window.location.href = '/auth/login'
         }
         return
       }
-
       if (!userData) {
-        console.log('🔄 No userData found, redirecting to login')
         try {
           router.push('/auth/login')
         } catch (error) {
-          console.log('Router failed, using window.location')
           window.location.href = '/auth/login'
         }
         return
       }
-
       if (!isOnboardingCompleted()) {
         router.push('/auth/login')
         return
       }
-
       if (isUserBlocked()) {
         if (pathname !== '/blocked') {
-          console.log('🚫 User is blocked, redirecting to blocked page')
           router.push('/blocked')
         }
         return
@@ -81,17 +67,8 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
     isUserBlocked
   ])
 
-  console.log('🎭 AuthGuard render state:', { 
-    isInitialized, 
-    isLoading, 
-    hasUserData: !!userData, 
-    hasTelegramUser: !!telegramUser,
-    pathname 
-  })
-
   // Allow login and blocked pages to render without protection
   if (pathname === '/auth/login' || pathname === '/blocked') {
-    console.log('🚪 On auth/login or blocked page - allowing access')
     return (
       <>
         <UserInitializer />
@@ -101,7 +78,6 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
   }
 
   if (!isInitialized || isLoading) {
-    console.log('⏳ AuthGuard showing loader: initialization in progress')
     return (
       <>
         <UserInitializer />
@@ -110,11 +86,7 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
     )
   }
 
-  // Don't show loading screen here - let the redirect happen in useEffect
-  console.log('✅ AuthGuard initialized, checking authentication...')
-
   if (!userData) {
-    console.log('❌ No userData found in render, showing loader while redirect happens')
     return (
       <>
         <UserInitializer />
@@ -150,7 +122,6 @@ export function OptimizedAuthGuard({ children }: OptimizedAuthGuardProps) {
     )
   }
 
-  console.log('🎉 AuthGuard: User authenticated, rendering protected content')
   return (
     <>
       <UserInitializer />

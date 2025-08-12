@@ -77,7 +77,18 @@ function MarketplaceContent() {
   const [selectedPostId, setSelectedPostId] = useState<Id<"posts"> | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   
-  const filters = useFilters()
+  const {
+    selectedBrands,
+    setSelectedBrands,
+    selectedConditions,
+    setSelectedConditions,
+    priceRange,
+    setPriceRange,
+    yearRange,
+    setYearRange,
+    selectedCategories,
+    setSelectedCategories,
+  } = useFilters()
   const [editingPost, setEditingPost] = useState<Product | null>(null)
   const [priceReady, setPriceReady] = useState(false)
   const [yearReady, setYearReady] = useState(false)
@@ -103,11 +114,11 @@ function MarketplaceContent() {
   useEffect(() => {
     if (!priceRangeData) return
     const newDefault: number[] = [priceRangeData.min, priceRangeData.max]
-    const current = filters.priceRange
+    const current = priceRange
     const lastDefault = lastPriceDefaultRef.current
 
     if (current.length !== 2) {
-      filters.setPriceRange(newDefault)
+      setPriceRange(newDefault)
       lastPriceDefaultRef.current = newDefault
       setPriceReady(true)
       return
@@ -117,23 +128,23 @@ function MarketplaceContent() {
     const isAtLastDefault = !!lastDefault && current[0] === lastDefault[0] && current[1] === lastDefault[1]
     // Only update when it actually differs AND user hasn't customized away from the last default
     if (differsFromNew && (isAtLastDefault || !lastDefault)) {
-      filters.setPriceRange(newDefault)
+      setPriceRange(newDefault)
       lastPriceDefaultRef.current = newDefault
     } else if (!lastDefault) {
       // Initialize last default for future comparisons
       lastPriceDefaultRef.current = newDefault
     }
     setPriceReady(true)
-  }, [priceRangeData, filters.priceRange, filters])
+  }, [priceRangeData, priceRange, setPriceRange])
 
   useEffect(() => {
     if (!yearRangeData) return
     const newDefault: number[] = [yearRangeData.min, yearRangeData.max]
-    const current = filters.yearRange
+    const current = yearRange
     const lastDefault = lastYearDefaultRef.current
 
     if (current.length !== 2) {
-      filters.setYearRange(newDefault)
+      setYearRange(newDefault)
       lastYearDefaultRef.current = newDefault
       setYearReady(true)
       return
@@ -142,13 +153,13 @@ function MarketplaceContent() {
     const differsFromNew = current[0] !== newDefault[0] || current[1] !== newDefault[1]
     const isAtLastDefault = !!lastDefault && current[0] === lastDefault[0] && current[1] === lastDefault[1]
     if (differsFromNew && (isAtLastDefault || !lastDefault)) {
-      filters.setYearRange(newDefault)
+      setYearRange(newDefault)
       lastYearDefaultRef.current = newDefault
     } else if (!lastDefault) {
       lastYearDefaultRef.current = newDefault
     }
     setYearReady(true)
-  }, [yearRangeData, filters.yearRange, filters])
+  }, [yearRangeData, yearRange, setYearRange])
 
   const telegramId = telegramUser?.userId
   const filteredAndSortedProducts = useMemo(() => {
@@ -170,7 +181,7 @@ function MarketplaceContent() {
         description: d.description,
         location: d.location,
       })),
-      isFavorite: currentUser && post.likedBy?.includes(currentUser._id) || false,
+       isFavorite: currentUser && post.likedBy?.includes(currentUser._id) || false,
       aiRating: post.aiRating,
       aiRecommendation: post.aiRecommendation,
       aiExplanation: post.aiExplanation,
@@ -191,31 +202,31 @@ function MarketplaceContent() {
     }
 
     // Apply brand filter
-    if (filters.selectedBrands.length > 0) {
-      filtered = filtered.filter(product => filters.selectedBrands.includes(product.brand))
+    if (selectedBrands.length > 0) {
+      filtered = filtered.filter(product => selectedBrands.includes(product.brand))
     }
 
     // Apply condition filter
-    if (filters.selectedConditions.length > 0) {
-      filtered = filtered.filter(product => filters.selectedConditions.includes(product.condition))
+    if (selectedConditions.length > 0) {
+      filtered = filtered.filter(product => selectedConditions.includes(product.condition))
     }
 
     // Apply price range filter (only after initialized)
-    if (priceReady && filters.priceRange.length === 2) {
+    if (priceReady && priceRange.length === 2) {
       filtered = filtered.filter(product => 
-        product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
+        product.price >= priceRange[0] && product.price <= priceRange[1]
       )
     }
 
     // Apply year range filter (only after initialized)
-    if (yearReady && filters.yearRange.length === 2) {
+    if (yearReady && yearRange.length === 2) {
       filtered = filtered.filter(product => 
-        product.year >= filters.yearRange[0] && product.year <= filters.yearRange[1]
+        product.year >= yearRange[0] && product.year <= yearRange[1]
       )
     }
 
     // Apply category filter (basic implementation)
-    if (filters.selectedCategories.length > 0) {
+    if (selectedCategories.length > 0) {
       // For now, we'll filter by category field if it exists
       // This would need to be expanded based on the actual category structure
     }
@@ -238,7 +249,7 @@ function MarketplaceContent() {
     }
 
     return filtered
-  }, [allPosts, searchQuery, filters.selectedBrands, filters.selectedConditions, filters.priceRange, filters.yearRange, filters.selectedCategories, sortBy, currentUser, priceReady, yearReady, telegramId])
+  }, [allPosts, searchQuery, selectedBrands, selectedConditions, priceRange, yearRange, selectedCategories, sortBy, currentUser, priceReady, yearReady, telegramId])
 
   const toggleFavorite = async (productId: string) => {
     if (!telegramUser?.userId) return
@@ -331,6 +342,19 @@ function MarketplaceContent() {
         <div className="p-4">
           {allPosts === undefined ? (
             <PageLoader text="Загружаем товары..." />
+          ) : (allPosts?.length || 0) === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center max-w-md">
+                <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                  <HomeIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-700 text-lg mb-1">Пока нет объявлений</p>
+                <p className="text-gray-500 text-sm mb-4">Как только пользователи добавят товары, они появятся здесь</p>
+                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  Добавить первое объявление
+                </Button>
+              </div>
+            </div>
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">

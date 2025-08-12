@@ -126,10 +126,6 @@ function ProfilePageContent() {
 
   // YooKassa widget initialization
   const initializePayoutWidget = () => {
-    console.log('Initializing YooKassa widget...')
-    console.log('Window PayoutsData available:', typeof window !== 'undefined' && !!(window as any).PayoutsData)
-    console.log('Account ID:', process.env.NEXT_PUBLIC_YOOKASSA_ACCOUNT_ID)
-    
     if (typeof window !== 'undefined' && (window as any).PayoutsData) {
       const accountId = process.env.NEXT_PUBLIC_YOOKASSA_ACCOUNT_ID
       if (!accountId) {
@@ -143,7 +139,6 @@ function ProfilePageContent() {
         account_id: accountId,
         lang: 'ru_RU', // 
         success_callback: (data: any) => {
-          console.log('YooKassa success callback:', data)
           setCardData({
             payout_token: data.payout_token,
             first6: data.first6,
@@ -189,7 +184,6 @@ function ProfilePageContent() {
         widget.render('yookassa-payout-form')
           .then(() => {
             payoutRenderedRef.current = true
-            console.log('YooKassa widget rendered successfully')
           })
           .catch((error: any) => {
             console.error('Error rendering YooKassa widget:', error)

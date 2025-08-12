@@ -74,15 +74,7 @@ export default function CheckoutPage() {
     if (!address && currentUser.deliveryAddress) setAddress(currentUser.deliveryAddress)
   }, [currentUser, buyerName, city, address])
 
-  // Debug: log delivery method selection
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[CDEK] delivery method selected:', deliveryCode)
-    if (deliveryCode === 'pickup') {
-      // eslint-disable-next-line no-console
-      console.log('[CDEK] pickup selected; PVZ button should be visible')
-    }
-  }, [deliveryCode])
+  
 
   // Initialize widget when overlay opens
   useEffect(() => {
@@ -98,7 +90,6 @@ export default function CheckoutPage() {
       const servicePath: string | undefined = process.env.NEXT_PUBLIC_CDEK_SERVICE_PATH || '/api/cdek/service'
       if (!apiKey) console.error('[CDEK] Missing NEXT_PUBLIC_YANDEX_MAPS_API_KEY')
       if (!servicePath) console.error('[CDEK] Missing servicePath')
-      console.log('[CDEK] init', { apiKey: !!apiKey, servicePath })
       // eslint-disable-next-line no-unused-vars
       const widgetInstance = new WidgetCtor({
         root: 'cdek-widget-container',
@@ -118,7 +109,7 @@ export default function CheckoutPage() {
           setIsCdekOpen(false)
         },
       })
-      console.log('[CDEK] widgetInstance created')
+      
     } catch (e) {
       console.error('CDEK widget init failed', e)
     }
@@ -133,18 +124,7 @@ export default function CheckoutPage() {
 
   const handlePay = () => {
     if (!item) return
-    // Here you would trigger your payment flow with escrow.
-    console.log("Initiating escrow payment:", {
-      postId: item.postId,
-      quantity,
-      buyerName,
-      buyerPhone,
-      city,
-      address,
-      delivery: deliveryCode,
-      paymentMethod,
-      amount: total,
-    })
+    
     // Navigate to messages with the seller or an order confirmation page
     router.push(`/messages`)
   }
@@ -309,7 +289,7 @@ export default function CheckoutPage() {
 
               {deliveryCode === 'pickup' && (
                 <div className="mt-3 space-y-2">
-                  <Button variant="outline" onClick={() => { console.log('[CDEK] opening widget overlay'); setIsCdekOpen(true) }}>
+                  <Button variant="outline" onClick={() => { setIsCdekOpen(true) }}>
                     Выбрать пункт выдачи CDEK
                   </Button>
                   <div className="text-sm text-gray-700">

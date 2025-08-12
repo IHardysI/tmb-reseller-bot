@@ -9,9 +9,7 @@ mockEnv().then(() => {
   try {
     const launchParams = retrieveLaunchParams();
     const { tgWebAppPlatform: platform } = launchParams;
-    const debug =
-      (launchParams.tgWebAppStartParam || '').includes('debug') ||
-      process.env.NODE_ENV === 'development';
+    const debug = (launchParams.tgWebAppStartParam || '').includes('debug');
 
     // Configure all application dependencies.
     init({
@@ -20,6 +18,6 @@ mockEnv().then(() => {
       mockForMacOS: platform === 'macos',
     });
   } catch (e) {
-    console.log(e);
+    console.error(e);
   }
 });
