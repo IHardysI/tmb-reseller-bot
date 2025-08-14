@@ -71,80 +71,9 @@ interface ModerationWarning {
 
 interface ModerationStats {}
 
-interface ModerationPageProps {
-  onBack?: () => void
-}
+interface ModerationPageProps {}
 
-const mockStats: ModerationStats = {}
-
-const mockWarnings: ModerationWarning[] = [
-  {
-    id: "1",
-    messageId: "msg1",
-    chatId: "chat1",
-    senderId: "user1",
-    receiverId: "user2",
-    messageContent: "Давайте встретимся лично, заплачу наличными без комиссии. Мой номер +7 999 123-45-67",
-    detectedKeywords: ["наличные", "без комиссии", "+7 999 123-45-67", "встретимся лично"],
-    riskLevel: "high",
-    warningType: "direct_payment",
-    status: "pending",
-    createdAt: "2024-02-29T14:30:00",
-    senderName: "Алексей М.",
-    senderAvatar: "/placeholder.svg?height=40&width=40",
-    receiverName: "Мария К.",
-    receiverAvatar: "/placeholder.svg?height=40&width=40",
-    itemName: "iPhone 15 Pro Max",
-    lastSuspiciousMessage:
-      "Можем встретиться завтра у метро, переведу деньги сразу на карту без всяких комиссий платформы",
-    lastSuspiciousTimestamp: "2024-02-29T15:45:00",
-  },
-  {
-    id: "2",
-    messageId: "msg2",
-    chatId: "chat2",
-    senderId: "user3",
-    receiverId: "user4",
-    messageContent: "Напиши мне в WhatsApp, там удобнее общаться",
-    detectedKeywords: ["WhatsApp"],
-    riskLevel: "medium",
-    warningType: "external_communication",
-    status: "pending",
-    createdAt: "2024-02-29T13:15:00",
-    senderName: "Дмитрий П.",
-    senderAvatar: "/placeholder.svg?height=40&width=40",
-    receiverName: "Анна С.",
-    receiverAvatar: "/placeholder.svg?height=40&width=40",
-    itemName: "Сумка Louis Vuitton",
-    lastSuspiciousMessage: "Скинь свой Telegram, в WhatsApp проще фотки отправлять",
-    lastSuspiciousTimestamp: "2024-02-29T14:20:00",
-  },
-  {
-    id: "3",
-    messageId: "msg3",
-    chatId: "chat3",
-    senderId: "user5",
-    receiverId: "user6",
-    messageContent: "Можем встретиться на самовывоз, мой инста @user123",
-    detectedKeywords: ["инста", "@user123", "самовывоз"],
-    riskLevel: "low",
-    warningType: "suspicious_contact",
-    status: "reviewed",
-    reviewedBy: "moderator1",
-    reviewedAt: "2024-02-29T12:00:00",
-    notes: "Обычное упоминание соцсетей для самовывоза",
-    createdAt: "2024-02-29T11:45:00",
-    senderName: "Елена В.",
-    senderAvatar: "/placeholder.svg?height=40&width=40",
-    receiverName: "Игорь Л.",
-    receiverAvatar: "/placeholder.svg?height=40&width=40",
-    itemName: "Кроссовки Nike",
-    lastSuspiciousMessage: "Можем встретиться на самовывоз, мой инста @user123",
-    lastSuspiciousTimestamp: "2024-02-29T11:45:00",
-  },
-]
-
-export default function ModerationPage({ onBack }: ModerationPageProps) {
+export default function ModerationPage() {
   const { userData } = useUserStore()
   const { toast } = useToast()
   const [selectedWarning, setSelectedWarning] = useState<ModerationWarning | null>(null)
@@ -372,11 +301,9 @@ export default function ModerationPage({ onBack }: ModerationPageProps) {
       <div className="bg-white border-b sticky top-0 z-40">
         <div className="p-4">
           <div className="flex items-center space-x-3">
-            {onBack && (
-              <Button variant="ghost" size="icon" onClick={onBack}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            )}
+            <Button variant="ghost" size="icon" onClick={() => history.back()}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <div className="flex items-center space-x-2">
               <Shield className="h-6 w-6 text-blue-600" />
               <h1 className="text-xl font-bold">Система модерации</h1>
