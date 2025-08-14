@@ -1,21 +1,19 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import Image from "next/image";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { useMemo, useState } from "react"
+import { useQuery, useMutation } from "convex/react"
+import { api } from "../../../convex/_generated/api"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
+  ArrowLeft,
   Shield,
   AlertTriangle,
   Ban,
@@ -34,544 +32,434 @@ import {
   UserX,
   Calendar,
   Hash,
-  Eye,
   Unlock,
-  MessageCircleWarning,
-} from "lucide-react";
-import { Id } from "../../../convex/_generated/dataModel";
-import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser";
+} from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useUserStore } from "@/stores/userStore"
+import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-const BLOCK_REASONS = [
-  { value: "spam", label: "Спам и навязчивые сообщения", color: "bg-yellow-100 text-yellow-800" },
-  { value: "fraud", label: "Мошенничество", color: "bg-red-100 text-red-800" },
-  { value: "bypass_platform", label: "Обход платформы", color: "bg-orange-100 text-orange-800" },
-  { value: "inappropriate_behavior", label: "Неподобающее поведение", color: "bg-purple-100 text-purple-800" },
-  { value: "fake_products", label: "Фальшивые товары", color: "bg-pink-100 text-pink-800" },
-  { value: "harassment", label: "Домогательства", color: "bg-red-100 text-red-800" },
-  { value: "external_deals", label: "Внешние сделки", color: "bg-blue-100 text-blue-800" },
-  { value: "policy_violation", label: "Нарушение политики", color: "bg-gray-100 text-gray-800" },
-];
+interface ModerationWarning {
+  id: string
+  messageId: string
+  chatId: string
+  senderId: string
+  receiverId: string
+  messageContent: string
+  detectedKeywords: string[]
+  riskLevel: "low" | "medium" | "high"
+  warningType:
+    | "external_communication"
+    | "direct_payment"
+    | "personal_meeting"
+    | "bypass_platform"
+    | "suspicious_contact"
+  status: "pending" | "reviewed" | "dismissed" | "action_taken"
+  reviewedBy?: string
+  reviewedAt?: string
+  actionTaken?: string
+  notes?: string
+  createdAt: string
+  senderName: string
+  senderAvatar: string
+  receiverName: string
+  receiverAvatar: string
+  itemName: string
+  lastSuspiciousMessage?: string
+  lastSuspiciousTimestamp?: string
+}
 
-const WARNING_REASONS = [
-  { value: "first_warning", label: "Первое предупреждение о нарушении правил" },
-  { value: "platform_bypass", label: "Попытка обхода платформы" },
-  { value: "external_communication", label: "Попытка общения вне платформы" },
-  { value: "inappropriate_content", label: "Неподобающее содержание сообщений" },
-  { value: "suspicious_behavior", label: "Подозрительное поведение" },
-];
+interface ModerationStats {}
 
-const DISMISS_REASONS = [
-  { value: "false_positive", label: "Ложное срабатывание системы" },
-  { value: "insufficient_evidence", label: "Недостаточно доказательств" },
-  { value: "user_clarification", label: "Пользователь предоставил разъяснения" },
-  { value: "minor_violation", label: "Незначительное нарушение" },
-  { value: "resolved_independently", label: "Решено самостоятельно пользователями" },
-];
+interface ModerationPageProps {
+  onBack?: () => void
+}
 
-const UNBLOCK_REASONS = [
-  { value: "appeal_successful", label: "Успешная апелляция пользователя" },
-  { value: "mistaken_block", label: "Ошибочная блокировка" },
-  { value: "resolved_issue", label: "Проблема решена" },
-  { value: "technical_error", label: "Техническая ошибка" },
-  { value: "policy_change", label: "Изменение политики" },
-  { value: "other", label: "Другая причина" },
-];
+const mockStats: ModerationStats = {}
 
-const getRiskColor = (risk: string) => {
-  switch (risk) {
-    case "high":
-      return "bg-red-100 text-red-800 border-red-200";
-    case "medium":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    case "low":
-      return "bg-green-100 text-green-800 border-green-200";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
-  }
-};
+const mockWarnings: ModerationWarning[] = [
+  {
+    id: "1",
+    messageId: "msg1",
+    chatId: "chat1",
+    senderId: "user1",
+    receiverId: "user2",
+    messageContent: "Давайте встретимся лично, заплачу наличными без комиссии. Мой номер +7 999 123-45-67",
+    detectedKeywords: ["наличные", "без комиссии", "+7 999 123-45-67", "встретимся лично"],
+    riskLevel: "high",
+    warningType: "direct_payment",
+    status: "pending",
+    createdAt: "2024-02-29T14:30:00",
+    senderName: "Алексей М.",
+    senderAvatar: "/placeholder.svg?height=40&width=40",
+    receiverName: "Мария К.",
+    receiverAvatar: "/placeholder.svg?height=40&width=40",
+    itemName: "iPhone 15 Pro Max",
+    lastSuspiciousMessage:
+      "Можем встретиться завтра у метро, переведу деньги сразу на карту без всяких комиссий платформы",
+    lastSuspiciousTimestamp: "2024-02-29T15:45:00",
+  },
+  {
+    id: "2",
+    messageId: "msg2",
+    chatId: "chat2",
+    senderId: "user3",
+    receiverId: "user4",
+    messageContent: "Напиши мне в WhatsApp, там удобнее общаться",
+    detectedKeywords: ["WhatsApp"],
+    riskLevel: "medium",
+    warningType: "external_communication",
+    status: "pending",
+    createdAt: "2024-02-29T13:15:00",
+    senderName: "Дмитрий П.",
+    senderAvatar: "/placeholder.svg?height=40&width=40",
+    receiverName: "Анна С.",
+    receiverAvatar: "/placeholder.svg?height=40&width=40",
+    itemName: "Сумка Louis Vuitton",
+    lastSuspiciousMessage: "Скинь свой Telegram, в WhatsApp проще фотки отправлять",
+    lastSuspiciousTimestamp: "2024-02-29T14:20:00",
+  },
+  {
+    id: "3",
+    messageId: "msg3",
+    chatId: "chat3",
+    senderId: "user5",
+    receiverId: "user6",
+    messageContent: "Можем встретиться на самовывоз, мой инста @user123",
+    detectedKeywords: ["инста", "@user123", "самовывоз"],
+    riskLevel: "low",
+    warningType: "suspicious_contact",
+    status: "reviewed",
+    reviewedBy: "moderator1",
+    reviewedAt: "2024-02-29T12:00:00",
+    notes: "Обычное упоминание соцсетей для самовывоза",
+    createdAt: "2024-02-29T11:45:00",
+    senderName: "Елена В.",
+    senderAvatar: "/placeholder.svg?height=40&width=40",
+    receiverName: "Игорь Л.",
+    receiverAvatar: "/placeholder.svg?height=40&width=40",
+    itemName: "Кроссовки Nike",
+    lastSuspiciousMessage: "Можем встретиться на самовывоз, мой инста @user123",
+    lastSuspiciousTimestamp: "2024-02-29T11:45:00",
+  },
+]
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "pending":
-      return "bg-orange-100 text-orange-800 border-orange-200";
-    case "resolved":
-      return "bg-blue-100 text-blue-800 border-blue-200";
-    case "dismissed":
-      return "bg-gray-100 text-gray-800 border-gray-200";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
-  }
-};
+export default function ModerationPage({ onBack }: ModerationPageProps) {
+  const { userData } = useUserStore()
+  const { toast } = useToast()
+  const [selectedWarning, setSelectedWarning] = useState<ModerationWarning | null>(null)
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterRisk, setFilterRisk] = useState<string>("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [reviewNotes, setReviewNotes] = useState("")
+  const [actionType, setActionType] = useState<string>("")
 
-const getWarningTypeIcon = (type: string) => {
-  switch (type) {
-    case "external_communication":
-      return <MessageSquare className="h-4 w-4" />;
-    case "direct_payment":
-      return <CreditCard className="h-4 w-4" />;
-    case "personal_meeting":
-      return <Users className="h-4 w-4" />;
-    case "bypass_platform":
-      return <ExternalLink className="h-4 w-4" />;
-    case "suspicious_contact":
-      return <Phone className="h-4 w-4" />;
-    default:
-      return <AlertTriangle className="h-4 w-4" />;
-  }
-};
-
-const getWarningTypeLabel = (type: string) => {
-  switch (type) {
-    case "external_communication":
-      return "Внешняя связь";
-    case "direct_payment":
-      return "Прямая оплата";
-    case "personal_meeting":
-      return "Личная встреча";
-    case "bypass_platform":
-      return "Обход платформы";
-    case "suspicious_contact":
-      return "Подозрительный контакт";
-    default:
-      return "Неизвестно";
-  }
-};
-
-const formatTime = (timestamp: number) => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-  if (diffInHours < 1) {
-    const diffInMinutes = Math.floor(diffInHours * 60);
-    return diffInMinutes < 1 ? "только что" : `${diffInMinutes} мин назад`;
-  } else if (diffInHours < 24) {
-    return `${Math.floor(diffInHours)} ч назад`;
-  } else {
-    return date.toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-};
-
-export default function ModerationPage() {
-  const telegramUser = useOptimizedTelegramUser();
-  const currentUser = telegramUser.userData;
-  const userRole = telegramUser.isAdmin ? { isAdmin: true, role: 'admin' } : { isAdmin: false, role: 'user' };
-
-  const [selectedCase, setSelectedCase] = useState<any>(null);
-  const [filterRisk, setFilterRisk] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showBlockDialog, setShowBlockDialog] = useState(false);
-  const [selectedBlockReason, setSelectedBlockReason] = useState("");
-  const [selectedUserToBlock, setSelectedUserToBlock] = useState<any>(null);
-  const [showChatMessages, setShowChatMessages] = useState(false);
-  const [selectedWarningReason, setSelectedWarningReason] = useState("");
-  const [selectedDismissReason, setSelectedDismissReason] = useState("");
-  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
-  const [selectedUnblockReason, setSelectedUnblockReason] = useState("");
-  const [selectedUserToUnblock, setSelectedUserToUnblock] = useState<any>(null);
-
-  const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" });
-  const resolvedCases = useQuery(api.moderation.getModerationCases, { status: "resolved" });
-  const blockedUsers = useQuery(api.moderation.getBlockedUsers, { limit: 100 });
+  const cases = useQuery(api.moderation.getModerationCases, {
+    status: filterStatus === "all" ? undefined : (filterStatus as any),
+    riskLevel: filterRisk === "all" ? undefined : (filterRisk as any),
+    limit: 200,
+  })
+  const stats = useQuery(api.moderation.getModerationStats, {})
   const chatMessages = useQuery(
     api.moderation.getChatMessages,
-    selectedCase ? { chatId: selectedCase.chatId, limit: 100 } : "skip"
-  );
-  
-  const resolveCaseMutation = useMutation(api.moderation.resolveModerationCase);
-  const unblockUserMutation = useMutation(api.moderation.unblockUserPlatformWide);
-  const blockUserMutation = useMutation(api.moderation.blockUserPlatformWide);
-  const sendWarningMutation = useMutation(api.moderation.sendWarningMessage);
+    selectedWarning ? { chatId: selectedWarning.chatId as any, limit: 50 } : "skip"
+  )
+  const resolveCase = useMutation(api.moderation.resolveModerationCase)
+  const sendWarning = useMutation(api.moderation.sendWarningMessage)
+  const blockUserPlatformWide = useMutation(api.moderation.blockUserPlatformWide)
+  const unblockUserPlatformWide = useMutation(api.moderation.unblockUserPlatformWide)
+  const getBlockedUsers = useQuery(api.moderation.getBlockedUsers, { limit: 100 })
 
-  const stats = {
-    pendingWarnings: activeCases?.length || 0,
-    highRiskWarnings: activeCases?.filter(c => c.highestRiskLevel === "high").length || 0,
-    resolvedCases: resolvedCases?.length || 0,
-    blockedUsers: blockedUsers?.length || 0,
-  };
-
-  if (!telegramUser.isInitialized || telegramUser.isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
-        </div>
-      </div>
-    );
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case "high":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200"
+      case "low":
+        return "bg-green-100 text-green-800 border-green-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
   }
 
-  if (!telegramUser.isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Доступ запрещен</h2>
-          <p className="text-gray-600">У вас нет прав доступа к странице модерации</p>
-        </div>
-      </div>
-    );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-orange-100 text-orange-800 border-orange-200"
+      case "reviewed":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "dismissed":
+        return "bg-gray-100 text-gray-800 border-gray-200"
+      case "action_taken":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
   }
 
-  
-
-
-
-  const filteredActiveCases = (activeCases || []).filter((case_) => {
-    const matchesRisk = filterRisk === "all" || case_.highestRiskLevel === filterRisk;
-    const matchesSearch =
-      searchQuery === "" ||
-      case_.buyer?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      case_.seller?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      case_.post?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesRisk && matchesSearch;
-  });
-
-  const filteredResolvedCases = (resolvedCases || []).filter((case_) => {
-    const matchesRisk = filterRisk === "all" || case_.highestRiskLevel === filterRisk;
-    const matchesSearch =
-      searchQuery === "" ||
-      case_.buyer?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      case_.seller?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      case_.post?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesRisk && matchesSearch;
-  });
-
-  const filteredBlockedUsers = (blockedUsers || []).filter((block) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      block.blockedUser?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      block.blockedUser?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      block.blockedUser?.username?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesSearch;
-  });
-
-  const handleBlockUser = async (user: any, reason: string) => {
-    if (!selectedBlockReason) {
-      alert("Выберите причину блокировки");
-      return;
+  const getWarningTypeIcon = (type: string) => {
+    switch (type) {
+      case "external_communication":
+        return <MessageSquare className="h-4 w-4" />
+      case "direct_payment":
+        return <CreditCard className="h-4 w-4" />
+      case "personal_meeting":
+        return <Users className="h-4 w-4" />
+      case "bypass_platform":
+        return <ExternalLink className="h-4 w-4" />
+      case "suspicious_contact":
+        return <Phone className="h-4 w-4" />
+      default:
+        return <AlertTriangle className="h-4 w-4" />
     }
+  }
 
-    if (!currentUser?.userId) {
-      alert("Ошибка: не удалось определить модератора");
-      return;
+  const getWarningTypeLabel = (type: string) => {
+    switch (type) {
+      case "external_communication":
+        return "Внешняя связь"
+      case "direct_payment":
+        return "Прямая оплата"
+      case "personal_meeting":
+        return "Личная встреча"
+      case "bypass_platform":
+        return "Обход платформы"
+      case "suspicious_contact":
+        return "Подозрительный контакт"
+      default:
+        return "Неизвестно"
     }
+  }
 
-    setIsSubmitting(true);
+  async function handlePrimaryAction() {
+    if (!selectedWarning || !userData?._id || !actionType) return
     try {
-      
-      const selectedReason = BLOCK_REASONS.find(r => r.value === selectedBlockReason);
-      const result = await blockUserMutation({
-        userId: user.id,
-        moderatorId: currentUser.userId as any,
-        reason: selectedReason?.label || selectedBlockReason,
-        caseId: selectedCase?._id,
-      });
-      
-      
-      
-      // Close block dialog but keep case dialog open for manual case closure
-      setShowBlockDialog(false);
-      setSelectedBlockReason("");
-      setSelectedUserToBlock(null);
-      
-      alert("Пользователь заблокирован");
-    } catch (error: any) {
-      console.error("Error blocking user:", error);
-      if (error?.message === "User is already blocked") {
-        alert("Пользователь уже заблокирован");
+      if (actionType === "warning_issued") {
+        await sendWarning({ caseId: selectedWarning.id as any, moderatorId: userData._id as any, reason: reviewNotes || "Нарушение правил" })
+        toast({ title: "Отправлено предупреждение" })
+      } else if (actionType === "dismiss_case") {
+        await resolveCase({ caseId: selectedWarning.id as any, moderatorId: userData._id as any, actionType: "dismiss_case", reason: reviewNotes || "Без действий", notes: reviewNotes })
+        toast({ title: "Случай отклонен" })
       } else {
-        alert("Ошибка при блокировке пользователя");
+        await resolveCase({ caseId: selectedWarning.id as any, moderatorId: userData._id as any, actionType: actionType as any, reason: reviewNotes || "Обход платформы", notes: reviewNotes })
+        toast({ title: "Действие применено" })
       }
-    } finally {
-      setIsSubmitting(false);
+      setSelectedWarning(null)
+      setReviewNotes("")
+      setActionType("")
+    } catch (e: any) {
+      toast({ title: "Ошибка", description: e?.message || "Не удалось выполнить действие" })
     }
-  };
+  }
 
-  const handleSendWarning = async () => {
-    if (!selectedWarningReason) {
-      alert("Выберите причину предупреждения");
-      return;
-    }
-
-    if (!currentUser?.userId) {
-      alert("Ошибка: не удалось определить модератора");
-      return;
-    }
-
-    setIsSubmitting(true);
+  async function handleBlockUser(userId?: string) {
+    if (!userId || !userData?._id) return
     try {
-      
-      const selectedReason = WARNING_REASONS.find(r => r.value === selectedWarningReason);
-      const result = await sendWarningMutation({
-        caseId: selectedCase._id,
-        moderatorId: currentUser.userId as any,
-        reason: selectedReason?.label || selectedWarningReason,
-      });
-      
-      
-      
-      // Wait a moment for the query to refresh before closing
-      setTimeout(() => {
-        setSelectedCase(null);
-        setSelectedWarningReason("");
-      }, 500);
-      
-      alert("Предупреждение отправлено в чат");
-    } catch (error) {
-      console.error("Error sending warning:", error);
-      alert("Ошибка при отправке предупреждения");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDismissCase = async () => {
-    if (!selectedDismissReason) {
-      alert("Выберите причину отклонения");
-      return;
-    }
-
-    if (!currentUser?.userId) {
-      alert("Ошибка: не удалось определить модератора");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      
-      const selectedReason = DISMISS_REASONS.find(r => r.value === selectedDismissReason);
-      const result = await resolveCaseMutation({
-        caseId: selectedCase._id,
-        moderatorId: currentUser.userId as any,
-        actionType: "dismiss_case",
-        reason: selectedReason?.label || selectedDismissReason,
-      });
-      
-      
-      
-      // Wait a moment for the query to refresh before closing
-      setTimeout(() => {
-        setSelectedCase(null);
-        setSelectedDismissReason("");
-      }, 500);
-    } catch (error) {
-      console.error("Error dismissing case:", error);
-      alert("Ошибка при отклонении дела");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUnblockUser = async (userId: Id<"users">, userName: string) => {
-    setSelectedUserToUnblock({ id: userId, name: userName });
-    setShowUnblockDialog(true);
-  };
-
-  const handleUnblockConfirm = async () => {
-    if (!selectedUnblockReason || !selectedUserToUnblock) return;
-
-    if (!currentUser?.userId) {
-      alert("Ошибка: не удалось определить модератора");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const selectedReason = UNBLOCK_REASONS.find(r => r.value === selectedUnblockReason);
-      await unblockUserMutation({
-        userId: selectedUserToUnblock.id,
-        moderatorId: currentUser.userId as any,
-        reason: selectedReason?.label || selectedUnblockReason,
-      });
-      setShowUnblockDialog(false);
-      setSelectedUnblockReason("");
-      setSelectedUserToUnblock(null);
-    } catch (error: any) {
-      console.error("Error unblocking user:", error);
-      if (error?.message === "User is not blocked") {
-        alert("Пользователь не заблокирован");
-      } else if (error?.message === "Block record not found") {
-        alert("Запись о блокировке не найдена");
-      } else {
-        alert("Ошибка при разблокировке пользователя");
+      await blockUserPlatformWide({ userId: userId as any, moderatorId: userData._id as any, reason: reviewNotes || "Блокировка модератором" })
+      toast({ title: "Пользователь заблокирован" })
+    } catch (e: any) {
+      if (e?.message && String(e.message).toLowerCase().includes("already blocked")) {
+        toast({ title: "Пользователь уже заблокирован" })
+        return
       }
-    } finally {
-      setIsSubmitting(false);
+      toast({ title: "Ошибка", description: e?.message || "Не удалось заблокировать пользователя" })
     }
-  };
+  }
 
-  const renderCaseItem = (case_: any, showActions = true) => (
-    <div
-      key={case_._id}
-      className="p-2 md:p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-      onClick={() => setSelectedCase(case_)}
-    >
-      <div className="flex items-start space-x-2 md:space-x-4">
-        <div className="flex-shrink-0 mt-1">
-          <div
-            className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
-              case_.highestRiskLevel === "high"
-                ? "bg-red-500"
-                : case_.highestRiskLevel === "medium"
-                  ? "bg-yellow-500"
-                  : "bg-green-500"
-            }`}
-          ></div>
-        </div>
+  async function handleUnblockUser(userId?: string) {
+    if (!userId || !userData?._id) return
+    try {
+      await unblockUserPlatformWide({ userId: userId as any, moderatorId: userData._id as any, reason: reviewNotes || "Разблокировано модератором" })
+      toast({ title: "Пользователь разблокирован" })
+    } catch (e: any) {
+      toast({ title: "Ошибка", description: e?.message || "Не удалось разблокировать пользователя" })
+    }
+  }
 
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1 md:mb-2 gap-1 md:gap-2">
-            <div className="flex flex-wrap items-center gap-1">
-              <Badge className={getRiskColor(case_.highestRiskLevel)} variant="outline">
-                {case_.highestRiskLevel === "high"
-                  ? "Высокий"
-                  : case_.highestRiskLevel === "medium"
-                    ? "Средний"
-                    : "Низкий"}
-              </Badge>
-              <Badge className={getStatusColor(case_.status)} variant="outline">
-                {case_.status === "pending"
-                  ? "Ожидает"
-                  : case_.status === "resolved"
-                    ? "Решено"
-                    : "Отклонено"}
-              </Badge>
-              <div className="flex items-center space-x-1 text-gray-500">
-                {getWarningTypeIcon(case_.primaryWarningType)}
-                <span className="text-xs hidden sm:inline">{getWarningTypeLabel(case_.primaryWarningType)}</span>
-              </div>
+  const normalizedWarnings: ModerationWarning[] = useMemo(() => {
+    const list = cases || []
+    return list.map((c: any) => {
+      const buyerName = `${c.buyer?.firstName || ""} ${c.buyer?.lastName || ""}`.trim() || c.buyer?.username || "Покупатель"
+      const sellerName = `${c.seller?.firstName || ""} ${c.seller?.lastName || ""}`.trim() || c.seller?.username || "Продавец"
+      return {
+        id: c._id,
+        messageId: c.messageId,
+        chatId: c.chatId,
+        senderId: c.buyer?.id,
+        receiverId: c.seller?.id,
+        messageContent: c.messageContent,
+        detectedKeywords: c.detectedKeywords || [],
+        riskLevel: c.riskLevel,
+        warningType: c.warningType,
+        status: c.status === "resolved" ? "reviewed" : c.status === "dismissed" ? "dismissed" : "pending",
+        createdAt: new Date(c.createdAt).toISOString(),
+        senderName: buyerName,
+        senderAvatar: c.buyer?.avatar || "/placeholder.svg",
+        receiverName: sellerName,
+        receiverAvatar: c.seller?.avatar || "/placeholder.svg",
+        itemName: c.post?.name || "",
+      }
+    })
+  }, [cases])
+
+  const filteredWarnings = normalizedWarnings.filter((warning) => {
+    const matchesStatus = filterStatus === "all" || warning.status === filterStatus
+    const matchesRisk = filterRisk === "all" || warning.riskLevel === filterRisk
+    const matchesSearch =
+      searchQuery === "" ||
+      warning.messageContent.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      warning.senderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      warning.itemName.toLowerCase().includes(searchQuery.toLowerCase())
+
+    return matchesStatus && matchesRisk && matchesSearch
+  })
+
+  function BlockedUsersTab() {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <UserX className="h-5 w-5" />
+            <span>Заблокированные пользователи ({getBlockedUsers?.length || 0})</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[65vh]">
+            <div className="p-3 space-y-2">
+              {(getBlockedUsers || []).map((b: any) => (
+                <div key={b._id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={b.blockedUser?.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>{(b.blockedUser?.firstName || "").charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{`${b.blockedUser?.firstName || ""} ${b.blockedUser?.lastName || ""}`.trim()}</div>
+                      <div className="text-xs text-gray-600 truncate">Причина: {b.reason}</div>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => handleUnblockUser(b.blockedUser?.id)}>
+                    Разблокировать
+                  </Button>
+                </div>
+              ))}
             </div>
-            <span className="text-xs text-gray-500">{formatTime(case_.createdAt)}</span>
-          </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    )
+  }
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-1 md:mb-2 gap-1 md:gap-2">
-            <div className="flex items-center space-x-1 md:space-x-2">
-              <Avatar className="h-4 w-4 md:h-6 md:w-6">
-                <AvatarImage src={case_.buyer?.avatar || "/placeholder.svg"} />
-                <AvatarFallback className="text-xs">{case_.buyer?.firstName?.[0]}</AvatarFallback>
-              </Avatar>
-              <span className="text-xs md:text-sm font-medium truncate">{case_.buyer?.firstName} {case_.buyer?.lastName}</span>
-            </div>
-            <span className="text-gray-400 hidden sm:inline">↔</span>
-            <div className="flex items-center space-x-1 md:space-x-2">
-              <Avatar className="h-4 w-4 md:h-6 md:w-6">
-                <AvatarImage src={case_.seller?.avatar || "/placeholder.svg"} />
-                <AvatarFallback className="text-xs">{case_.seller?.firstName?.[0]}</AvatarFallback>
-              </Avatar>
-              <span className="text-xs md:text-sm font-medium truncate">{case_.seller?.firstName} {case_.seller?.lastName}</span>
-            </div>
-            <span className="text-xs text-gray-500 truncate">• {case_.post?.name}</span>
-          </div>
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
 
-          <div className="flex items-center justify-between">
-            <span className="text-xs md:text-sm text-gray-600">{case_.totalWarnings} предупреждений</span>
-            {showActions && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedCase(case_);
-                }}
-                className="ml-1 md:ml-2 h-6 md:h-8 px-2 md:px-3"
-              >
-                <Eye className="h-3 w-3 md:h-4 md:w-4 sm:mr-1" />
-                <span className="hidden sm:inline text-xs">Просмотр</span>
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor(diffInHours * 60)
+      return diffInMinutes < 1 ? "только что" : `${diffInMinutes} мин назад`
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} ч назад`
+    } else {
+      return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full max-w-6xl mx-auto p-2 md:p-4 lg:p-6 space-y-3 md:space-y-6">
-        {/* Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-40">
+        <div className="p-4">
+          <div className="flex items-center space-x-3">
+            {onBack && (
+              <Button variant="ghost" size="icon" onClick={onBack}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="flex items-center space-x-2">
+              <Shield className="h-6 w-6 text-blue-600" />
+              <h1 className="text-xl font-bold">Система модерации</h1>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+        <Tabs defaultValue="cases" className="w-full">
+          <TabsList>
+            <TabsTrigger value="cases">Предупреждения</TabsTrigger>
+            <TabsTrigger value="blocked">Заблокированные</TabsTrigger>
+          </TabsList>
+          <TabsContent value="cases" className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Card>
-            <CardContent className="p-3 md:p-6">
+            <CardContent className="p-3">
               <div className="flex items-center space-x-2">
-                <div className="p-2  bg-orange-100 rounded-lg">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Hash className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{stats?.totalCases ?? 0}</p>
+                  <p className="text-[10px] text-gray-600">Всего</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-orange-100 rounded-lg">
                   <Clock className="h-4 w-4 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-lg md:text-2xl font-bold">{stats.pendingWarnings}</p>
-                  <p className="text-xs text-gray-600">Активные дела</p>
+                  <p className="text-lg font-bold">{stats?.pendingCases ?? 0}</p>
+                  <p className="text-[10px] text-gray-600">Ожидают</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-3 md:p-6">
+            <CardContent className="p-3">
               <div className="flex items-center space-x-2">
-                <div className="p-2  bg-red-100 rounded-lg">
+                <div className="p-2 bg-red-100 rounded-lg">
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-lg md:text-2xl font-bold">{stats.highRiskWarnings}</p>
-                  <p className="text-xs text-gray-600">Высокий риск</p>
+                  <p className="text-lg font-bold">{stats?.highRiskCases ?? 0}</p>
+                  <p className="text-[10px] text-gray-600">Высокий риск</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className="p-3 md:p-6">
-              <div className="flex items-center space-x-2">
-                <div className="p-2  bg-green-100 rounded-lg">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-lg md:text-2xl font-bold">{stats.resolvedCases}</p>
-                  <p className="text-xs text-gray-600">Решенные дела</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-3 md:p-6">
-              <div className="flex items-center space-x-2">
-                <div className="p-2  bg-purple-100 rounded-lg">
-                  <Ban className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-lg md:text-2xl font-bold">{stats.blockedUsers}</p>
-                  <p className="text-xs text-gray-600">Заблокированные</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card> 
         </div>
 
-        {/* Filters */}
-        <Card className="py-0!">
-          <CardContent className="p-2 md:p-4">
-            <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+        {/* Filters and Search */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Поиск по пользователю или товару..."
+                  placeholder="Поиск по сообщению, пользователю или товару..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-8 md:h-10"
+                  className="pl-10"
                 />
               </div>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Статус" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все статусы</SelectItem>
+                  <SelectItem value="pending">Ожидают</SelectItem>
+                  <SelectItem value="resolved">Закрыты</SelectItem>
+                  <SelectItem value="dismissed">Отклонены</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={filterRisk} onValueChange={setFilterRisk}>
-                <SelectTrigger className="w-full md:w-48 h-8 md:h-10">
+                <SelectTrigger className="w-full md:w-48">
                   <SelectValue placeholder="Риск" />
                 </SelectTrigger>
                 <SelectContent>
@@ -585,596 +473,531 @@ export default function ModerationPage() {
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="active-cases" className="w-full">
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="active-cases" className="text-xs md:text-sm">Активные дела</TabsTrigger>
-            <TabsTrigger value="resolved-cases" className="text-xs md:text-sm">Решенные дела</TabsTrigger>
-            <TabsTrigger value="blocked-users" className="text-xs md:text-sm">Заблокированные</TabsTrigger>
-          </TabsList>
-          <TabsContent value="active-cases">
-            <Card>
-              <CardHeader className="pb-2 md:pb-3">
-                <CardTitle className="flex items-center space-x-2 text-sm md:text-lg">
-                  <AlertCircle className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>Активные дела ({filteredActiveCases.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px] md:h-[700px]">
-                  <div className="space-y-1 p-2 md:p-4">
-                    {filteredActiveCases.length > 0 ? (
-                      filteredActiveCases.map((case_) => renderCaseItem(case_))
-                    ) : (
-                      <div className="text-center py-6 md:py-8 text-gray-500">
-                        <AlertCircle className="w-6 h-6 md:w-12 md:h-12 mx-auto mb-2 md:mb-4 text-gray-400" />
-                        <p className="text-sm">Активных дел нет</p>
+        {/* Warnings List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5" />
+              <span>Предупреждения модерации ({filteredWarnings.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[65vh]">
+              <div className="space-y-1 p-4">
+                {filteredWarnings.map((warning) => (
+                  <div
+                    key={warning.id}
+                    className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => setSelectedWarning(warning)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      {/* Risk Level Indicator */}
+                      <div className="flex-shrink-0 mt-1">
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            warning.riskLevel === "high"
+                              ? "bg-red-500"
+                              : warning.riskLevel === "medium"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                          }`}
+                        ></div>
                       </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="resolved-cases">
-            <Card>
-              <CardHeader className="pb-2 md:pb-3">
-                <CardTitle className="flex items-center space-x-2 text-sm md:text-lg">
-                  <CheckCircle className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>Решенные дела ({filteredResolvedCases.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px] md:h-[700px]">
-                  <div className="space-y-1 p-2 md:p-4">
-                    {filteredResolvedCases.length > 0 ? (
-                      filteredResolvedCases.map((case_) => renderCaseItem(case_, false))
-                    ) : (
-                      <div className="text-center py-6 md:py-8 text-gray-500">
-                        <CheckCircle className="w-6 h-6 md:w-12 md:h-12 mx-auto mb-2 md:mb-4 text-gray-400" />
-                        <p className="text-sm">Решенных дел нет</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="blocked-users">
-            <Card>
-              <CardHeader className="pb-2 md:pb-3">
-                <CardTitle className="flex items-center space-x-2 text-sm md:text-lg">
-                  <UserX className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>Заблокированные пользователи ({filteredBlockedUsers.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px] md:h-[700px]">
-                  <div className="space-y-2 md:space-y-3 p-2 md:p-4">
-                    {filteredBlockedUsers.length > 0 ? (
-                      filteredBlockedUsers.map((block) => (
-                        <div key={block._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 md:p-4 border rounded-lg gap-2 md:gap-3">
-                          <div className="flex items-center space-x-2 md:space-x-3">
-                            <Avatar className="h-6 w-6 md:h-10 md:w-10">
-                              <AvatarImage src={block.blockedUser?.avatar || "/placeholder.svg"} />
-                              <AvatarFallback className="text-xs">{block.blockedUser?.firstName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm md:text-base font-medium truncate">{block.blockedUser?.firstName} {block.blockedUser?.lastName}</p>
-                              <p className="text-xs md:text-sm text-gray-500 truncate">@{block.blockedUser?.username}</p>
-                              <p className="text-xs text-gray-400">Заблокирован {formatTime(block.createdAt)}</p>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2 flex-wrap">
+                            <Badge className={getRiskColor(warning.riskLevel)} variant="outline">
+                              {warning.riskLevel === "high"
+                                ? "Высокий"
+                                : warning.riskLevel === "medium"
+                                  ? "Средний"
+                                  : "Низкий"}
+                            </Badge>
+                            <Badge className={getStatusColor(warning.status)} variant="outline">
+                              {warning.status === "pending"
+                                ? "Ожидает"
+                                : warning.status === "reviewed"
+                                  ? "Проверено"
+                                  : warning.status === "dismissed"
+                                    ? "Отклонено"
+                                    : "Действие принято"}
+                            </Badge>
+                            <div className="flex items-center space-x-1 text-gray-500">
+                              {getWarningTypeIcon(warning.warningType)}
+                              <span className="text-xs hidden sm:inline">
+                                {getWarningTypeLabel(warning.warningType)}
+                              </span>
                             </div>
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                            <div className="text-left sm:text-right sm:mr-4">
-                              <p className="text-xs md:text-sm font-medium">Причина:</p>
-                              <p className="text-xs text-gray-600 max-w-xs truncate">{block.reason}</p>
-                            </div>
-                            {block.canBeReversed && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUnblockUser(block.blockedUser?.id as Id<"users">, `${block.blockedUser?.firstName} ${block.blockedUser?.lastName}`)}
-                                className="w-full sm:w-auto h-7 md:h-8 px-2 md:px-3"
-                              >
-                                <Unlock className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                                <span className="text-xs">Разблокировать</span>
-                              </Button>
-                            )}
-                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{formatTime(warning.createdAt)}</span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 md:py-8 text-gray-500">
-                        <UserX className="w-6 h-6 md:w-12 md:h-12 mx-auto mb-2 md:mb-4 text-gray-400" />
-                        <p className="text-sm">Заблокированных пользователей нет</p>
+
+                        <div className="flex items-center space-x-2 mb-2 text-sm">
+                          <span className="font-medium truncate max-w-[100px]">{warning.senderName}</span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-medium truncate max-w-[100px]">{warning.receiverName}</span>
+                          <span className="text-xs text-gray-500 truncate">• {warning.itemName}</span>
+                        </div>
+
+                        {/* Show only first few keywords */}
+                        <div className="flex flex-wrap gap-1">
+                          {warning.detectedKeywords.slice(0, 3).map((keyword, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {keyword}
+                            </Badge>
+                          ))}
+                          {warning.detectedKeywords.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{warning.detectedKeywords.length - 3}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+          </TabsContent>
+          <TabsContent value="blocked">
+            <BlockedUsersTab />
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Enhanced Case Detail Dialog */}
-      <Dialog open={selectedCase !== null} onOpenChange={() => {
-        setSelectedCase(null);
-        setSelectedWarningReason("");
-        setSelectedDismissReason("");
-        setSelectedBlockReason("");
-      }}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2 text-sm md:text-lg">
-              <AlertTriangle className="h-4 w-4 md:h-5 md:w-5" />
-              <span>Детали дела модерации</span>
-            </DialogTitle>
+      {/* Enhanced Warning Detail Modal - Mobile & Desktop Optimized */}
+      <Dialog open={selectedWarning !== null} onOpenChange={() => setSelectedWarning(null)}>
+        <DialogContent showCloseButton={false} className="w-[95vw] max-w-3xl h-[90vh] p-0 overflow-hidden rounded-lg">
+          <DialogHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+            <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <AlertTriangle className="h-5 w-5 text-orange-600 flex-shrink-0" />
+                <DialogTitle className="text-lg font-semibold truncate">Детали предупреждения</DialogTitle>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedWarning(null)}
+                className="h-8 w-8 flex-shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </DialogHeader>
 
-          {selectedCase && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 md:p-4 bg-gray-50 rounded-lg gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className={getRiskColor(selectedCase.highestRiskLevel)} variant="outline">
-                    Риск: {selectedCase.highestRiskLevel === "high" ? "Высокий" : selectedCase.highestRiskLevel === "medium" ? "Средний" : "Низкий"}
-                  </Badge>
-                  <Badge className={getStatusColor(selectedCase.status)} variant="outline">
-                    {selectedCase.status === "pending" ? "Ожидает проверки" : selectedCase.status === "resolved" ? "Решено" : "Отклонено"}
-                  </Badge>
-                  <div className="flex items-center space-x-1 text-gray-600">
-                    {getWarningTypeIcon(selectedCase.primaryWarningType)}
-                    <span className="text-xs md:text-sm">{getWarningTypeLabel(selectedCase.primaryWarningType)}</span>
+          {selectedWarning && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-3 sm:p-4 lg:p-6">
+                {/* Status Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-gray-50 rounded-lg p-2 sm:p-3 lg:p-4 gap-2 sm:gap-3 mb-4">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                    <Badge className={getRiskColor(selectedWarning.riskLevel)} variant="outline">
+                      {selectedWarning.riskLevel === "high"
+                        ? "Высокий"
+                        : selectedWarning.riskLevel === "medium"
+                          ? "Средний"
+                          : "Низкий"}
+                    </Badge>
+                    <Badge className={getStatusColor(selectedWarning.status)} variant="outline">
+                      {selectedWarning.status === "pending"
+                        ? "Ожидает"
+                        : selectedWarning.status === "reviewed"
+                          ? "Проверено"
+                          : selectedWarning.status === "dismissed"
+                            ? "Отклонено"
+                            : "Действие принято"}
+                    </Badge>
+                    <div className="flex items-center space-x-1 text-gray-600">
+                      {getWarningTypeIcon(selectedWarning.warningType)}
+                      <span className="text-xs sm:text-sm">{getWarningTypeLabel(selectedWarning.warningType)}</span>
+                    </div>
                   </div>
-                </div>
-                <span className="text-xs md:text-sm text-gray-500">{formatTime(selectedCase.createdAt)}</span>
-              </div>
-
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                {/* Left Column - Case Info */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center justify-between">
-                          Покупатель
-                          {selectedCase.buyer?.isBlocked ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled
-                              className="h-6 px-2 text-xs bg-red-50 text-red-700 border-red-200"
-                            >
-                              <Ban className="h-3 w-3 mr-1" />
-                              Заблокирован
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedUserToBlock(selectedCase.buyer);
-                                setShowBlockDialog(true);
-                              }}
-                              className="h-6 px-2 text-xs"
-                            >
-                              <Ban className="h-3 w-3 mr-1" />
-                              Блок
-                            </Button>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center space-x-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={selectedCase.buyer?.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="text-xs">{selectedCase.buyer?.firstName?.[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{selectedCase.buyer?.firstName} {selectedCase.buyer?.lastName}</p>
-                            <p className="text-xs text-gray-600 truncate">@{selectedCase.buyer?.username}</p>
-                            {selectedCase.buyer?.isBlocked && (
-                              <div className="mt-1">
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
-                                  Заблокирован
-                                </Badge>
-                                {selectedCase.buyer?.blockReason && (
-                                  <p className="text-xs text-red-600 mt-1 truncate">{selectedCase.buyer.blockReason}</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center justify-between">
-                          Продавец
-                          {selectedCase.seller?.isBlocked ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled
-                              className="h-6 px-2 text-xs bg-red-50 text-red-700 border-red-200"
-                            >
-                              <Ban className="h-3 w-3 mr-1" />
-                              Заблокирован
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedUserToBlock(selectedCase.seller);
-                                setShowBlockDialog(true);
-                              }}
-                              className="h-6 px-2 text-xs"
-                            >
-                              <Ban className="h-3 w-3 mr-1" />
-                              Блок
-                            </Button>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center space-x-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={selectedCase.seller?.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="text-xs">{selectedCase.seller?.firstName?.[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{selectedCase.seller?.firstName} {selectedCase.seller?.lastName}</p>
-                            <p className="text-xs text-gray-600 truncate">@{selectedCase.seller?.username}</p>
-                            {selectedCase.seller?.isBlocked && (
-                              <div className="mt-1">
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
-                                  Заблокирован
-                                </Badge>
-                                {selectedCase.seller?.blockReason && (
-                                  <p className="text-xs text-red-600 mt-1 truncate">{selectedCase.seller.blockReason}</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Товар</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center space-x-3">
-                        <Image 
-                          src={selectedCase.post?.image || "/placeholder.svg"} 
-                          alt={selectedCase.post?.name || ""}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 object-cover rounded"
-                          unoptimized
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{selectedCase.post?.name}</p>
-                          <p className="text-xs text-gray-600">{selectedCase.post?.price} ₽</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Подозрительное сообщение</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-red-50 border border-red-200 rounded p-3">
-                        <p className="text-sm text-red-800">{selectedCase.messageContent}</p>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {selectedCase.detectedKeywords?.map((keyword: string, index: number) => (
-                            <Badge key={index} variant="outline" className="bg-red-100 text-red-700 text-xs">
-                              {keyword}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <span className="text-xs sm:text-sm text-gray-500 self-start sm:self-center">
+                    {formatTime(selectedWarning.createdAt)}
+                  </span>
                 </div>
 
-                {/* Right Column - Chat Messages */}
-                <div>
-                  <Card className="h-[400px]">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        История чата
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <ScrollArea className="h-[350px] p-4">
-                        {chatMessages && chatMessages.length > 0 ? (
-                          <div className="space-y-3">
-                            {chatMessages.map((message: any) => (
-                              <div key={message._id} className="flex items-start space-x-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={message.sender?.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback className="text-xs">{message.sender?.firstName?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium">{message.sender?.firstName}</span>
-                                    <span className="text-xs text-gray-500">{formatTime(message.createdAt)}</span>
-                                  </div>
-                                  <p className="text-sm text-gray-700 mt-1">{message.content}</p>
-                                </div>
+                {/* Accordion for organized content */}
+                <Accordion
+                  type="multiple"
+                  defaultValue={["participants", "message", "chat", "context"]}
+                  className="w-full"
+                >
+                  {/* Participants Section */}
+                  <AccordionItem value="participants">
+                    <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4" />
+                        <span>Участники</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">
+                        <Card>
+                          <CardHeader className="pb-2 sm:pb-3 px-3 py-2 sm:px-4 sm:py-3">
+                            <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+                              <span>Отправитель</span>
+                              <Button size="icon" variant={selectedWarning?.senderId && getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.senderId) ? "default" : "outline"} className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => {
+                                const isBlocked = getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.senderId)
+                                if (isBlocked) handleUnblockUser(selectedWarning.senderId)
+                                else handleBlockUser(selectedWarning.senderId)
+                              }}>
+                                {getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.senderId) ? <Unlock className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                                <span className="sr-only">{getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.senderId) ? "Разблокировать" : "Блокировать"}</span>
+                              </Button>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                                <AvatarImage src={selectedWarning.senderAvatar || "/placeholder.svg"} />
+                                <AvatarFallback className="text-xs">
+                                  {selectedWarning.senderName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm sm:text-base font-medium truncate">
+                                  {selectedWarning.senderName}
+                                </p>
+                                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                                  ID: {selectedWarning.senderId}
+                                </p>
                               </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-2 sm:pb-3 px-3 py-2 sm:px-4 sm:py-3">
+                            <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+                              <span>Получатель</span>
+                              <Button size="icon" variant={selectedWarning?.receiverId && getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.receiverId) ? "default" : "outline"} className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => {
+                                const isBlocked = getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.receiverId)
+                                if (isBlocked) handleUnblockUser(selectedWarning.receiverId)
+                                else handleBlockUser(selectedWarning.receiverId)
+                              }}>
+                                {getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.receiverId) ? <Unlock className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                                <span className="sr-only">{getBlockedUsers?.some((b: any) => b.blockedUser?.id === selectedWarning.receiverId) ? "Разблокировать" : "Блокировать"}</span>
+                              </Button>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                                <AvatarImage src={selectedWarning.receiverAvatar || "/placeholder.svg"} />
+                                <AvatarFallback className="text-xs">
+                                  {selectedWarning.receiverName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm sm:text-base font-medium truncate">
+                                  {selectedWarning.receiverName}
+                                </p>
+                                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                                  ID: {selectedWarning.receiverId}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Message Content Section */}
+                  <AccordionItem value="message">
+                    <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        <span>Подозрительное сообщение</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2">
+                        {/* Most Recent Suspicious Message */}
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-medium text-red-700">
+                              Последнее подозрительное сообщение:
+                            </span>
+                            <span className="text-xs text-red-600">
+                              {selectedWarning.lastSuspiciousTimestamp
+                                ? formatTime(selectedWarning.lastSuspiciousTimestamp)
+                                : formatTime(selectedWarning.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-red-800 leading-relaxed break-words whitespace-pre-wrap mb-3">
+                            {selectedWarning.lastSuspiciousMessage || selectedWarning.messageContent}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-xs font-medium text-red-700 mr-2">Обнаруженные ключевые слова:</span>
+                            {selectedWarning.detectedKeywords.map((keyword, index) => (
+                              <Badge key={index} variant="destructive" className="text-xs px-2 py-1">
+                                {keyword}
+                              </Badge>
                             ))}
                           </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                            <p className="text-sm">Сообщения загружаются...</p>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Chat History Section */}
+                  <AccordionItem value="chat">
+                    <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                      <div className="flex items-center space-x-2">
+                        <MessageSquare className="h-4 w-4" />
+                        <span>История чата</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2">
+                        <div className="bg-gray-50 border rounded-lg p-3 sm:p-4 max-h-80 overflow-y-auto">
+                          <div className="space-y-3 sm:space-y-4">
+                            {/* Mock chat messages with better styling */}
+                            <div className="flex items-start space-x-3">
+                              <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarImage src={selectedWarning.senderAvatar || "/placeholder.svg"} />
+                                <AvatarFallback className="text-xs">
+                                  {selectedWarning.senderName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-xs font-medium truncate">{selectedWarning.senderName}</span>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">
+                                    {formatTime(selectedWarning.createdAt)}
+                                  </span>
+                                </div>
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm break-words leading-relaxed shadow-sm">
+                                  <div className="flex items-start space-x-2">
+                                    <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                    <div className="text-red-800">{selectedWarning.messageContent}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Additional mock messages */}
+                            <div className="flex items-start space-x-3">
+                              <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarImage src={selectedWarning.receiverAvatar || "/placeholder.svg"} />
+                                <AvatarFallback className="text-xs">
+                                  {selectedWarning.receiverName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-xs font-medium truncate">{selectedWarning.receiverName}</span>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">2 мин назад</span>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border text-sm shadow-sm">
+                                  Хорошо, давайте обсудим детали
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3">
+                              <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarImage src={selectedWarning.senderAvatar || "/placeholder.svg"} />
+                                <AvatarFallback className="text-xs">
+                                  {selectedWarning.senderName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-xs font-medium truncate">{selectedWarning.senderName}</span>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">1 мин назад</span>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border text-sm shadow-sm">
+                                  Отлично! Жду ваших предложений
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Show full chat button */}
+                            <div className="text-center pt-2 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs bg-transparent"
+                                onClick={() => console.log("Open full chat for:", selectedWarning.chatId)}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Открыть полный чат
+                              </Button>
+                            </div>
                           </div>
-                        )}
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Action Section */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Действия модератора</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Warning Action */}
-                    <Card className="border-yellow-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-yellow-700 flex items-center">
-                          <MessageCircleWarning className="h-4 w-4 mr-2" />
-                          Отправить предупреждение
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Причина предупреждения</label>
-                          <Select value={selectedWarningReason} onValueChange={setSelectedWarningReason}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите причину..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {WARNING_REASONS.map((reason) => (
-                                <SelectItem key={reason.value} value={reason.value}>
-                                  {reason.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </div>
-                        <Button
-                          onClick={handleSendWarning}
-                          disabled={isSubmitting || !selectedWarningReason}
-                          className="w-full bg-yellow-600 hover:bg-yellow-700"
-                        >
-                          <MessageCircleWarning className="h-4 w-4 mr-2" />
-                          Отправить предупреждение
-                        </Button>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                    {/* Dismiss Action */}
-                    <Card className="border-gray-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-gray-700 flex items-center">
-                          <X className="h-4 w-4 mr-2" />
-                          Отклонить дело
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Причина отклонения</label>
-                          <Select value={selectedDismissReason} onValueChange={setSelectedDismissReason}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите причину..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DISMISS_REASONS.map((reason) => (
-                                <SelectItem key={reason.value} value={reason.value}>
-                                  {reason.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                  {/* Context Section */}
+                  <AccordionItem value="context">
+                    <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                      <div className="flex items-center space-x-2">
+                        <Hash className="h-4 w-4" />
+                        <span>Контекст и детали</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center p-3 bg-gray-100 rounded-lg min-h-[64px]">
+                              <span className="text-sm text-gray-600 font-medium">Товар:</span>
+                              <span className="text-sm font-semibold text-gray-900 truncate ml-2 max-w-[60%]">
+                                {selectedWarning.itemName}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-gray-100 rounded-lg min-h-[64px]">
+                              <span className="text-sm text-gray-600 font-medium">Чат ID:</span>
+                              <span className="font-mono text-sm text-gray-800 truncate ml-2 max-w-[60%]">
+                                {selectedWarning.chatId}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center p-3 bg-gray-100 rounded-lg min-h-[64px]">
+                              <span className="text-sm text-gray-600 font-medium">Тип нарушения:</span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {getWarningTypeLabel(selectedWarning.warningType)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-gray-100 rounded-lg min-h-[64px]">
+                              <span className="text-sm text-gray-600 font-medium">Уровень риска:</span>
+                              <Badge className={getRiskColor(selectedWarning.riskLevel)} variant="outline">
+                                {selectedWarning.riskLevel === "high"
+                                  ? "Высокий"
+                                  : selectedWarning.riskLevel === "medium"
+                                    ? "Средний"
+                                    : "Низкий"}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-                        <Button
-                          onClick={handleDismissCase}
-                          disabled={isSubmitting || !selectedDismissReason}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <X className="h-4 w-4 mr-2" />
-                          Отклонить дело
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                  {/* Manual Close Case Action - shown when users are blocked */}
-                  {(selectedCase.buyer?.isBlocked || selectedCase.seller?.isBlocked) && selectedCase.status === "pending" && (
-                    <Card className="border-blue-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-blue-700 flex items-center">
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Закрыть дело вручную
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <p className="text-sm text-gray-600">
-                          {selectedCase.buyer?.isBlocked && selectedCase.seller?.isBlocked
-                            ? "Оба пользователя заблокированы. Дело может быть закрыто."
-                            : selectedCase.buyer?.isBlocked
-                            ? "Покупатель заблокирован. Дело может быть закрыто."
-                            : "Продавец заблокирован. Дело может быть закрыто."
-                          }
-                        </p>
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Причина закрытия</label>
-                          <Select value={selectedDismissReason} onValueChange={setSelectedDismissReason}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите причину..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="users_blocked">Пользователи заблокированы</SelectItem>
-                              <SelectItem value="issue_resolved">Проблема решена</SelectItem>
-                              <SelectItem value="manual_review_complete">Ручная проверка завершена</SelectItem>
-                            </SelectContent>
-                          </Select>
+                  {/* Review History - visible always, richer details */}
+                  <AccordionItem value="history">
+                      <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>История проверки</span>
                         </div>
-                        <Button
-                          onClick={handleDismissCase}
-                          disabled={isSubmitting || !selectedDismissReason}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Закрыть дело
-                        </Button>
-                      </CardContent>
-                    </Card>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                      <div className="pt-2">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                            <div className="flex items-center space-x-3">
+                              <User className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              <div>
+                                <span className="text-sm font-medium text-blue-900">Проверено модератором:</span>
+                                <span className="text-sm text-blue-800 ml-2">
+                                  {selectedWarning.reviewedBy || "—"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Calendar className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              <div>
+                                <span className="text-sm font-medium text-blue-900">Дата проверки:</span>
+                                <span className="text-sm text-blue-800 ml-2">
+                                  {selectedWarning.reviewedAt ? formatTime(selectedWarning.reviewedAt) : "—"}
+                                </span>
+                              </div>
+                            </div>
+                          <div className="flex items-center space-x-3">
+                            <AlertTriangle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <div>
+                              <span className="text-sm font-medium text-blue-900">Принятое действие:</span>
+                              <span className="text-sm text-blue-800 ml-2">{selectedWarning.actionTaken || "—"}</span>
+                            </div>
+                          </div>
+                          <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                            <span className="text-sm font-medium text-blue-900 block mb-2">Заметки модератора:</span>
+                            <p className="text-sm text-blue-800 leading-relaxed break-words">{selectedWarning.notes || "—"}</p>
+                          </div>
+                          </div>
+                      </div>
+                      </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Actions Section for pending cases */}
+                  {selectedWarning.status === "pending" && (
+                    <AccordionItem value="actions">
+                      <AccordionTrigger className="text-sm sm:text-base font-semibold">
+                        <div className="flex items-center space-x-2">
+                          <Shield className="h-4 w-4" />
+                          <span>Действия модератора</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pt-2 space-y-4">
+                          {/* Action Type Selection */}
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Тип действия</label>
+                            <Select value={actionType} onValueChange={setActionType}>
+                              <SelectTrigger className="text-sm">
+                                <SelectValue placeholder="Выберите действие" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="warning_issued">Предупреждение в чат</SelectItem>
+                                <SelectItem value="block_buyer">Блокировать покупателя</SelectItem>
+                                <SelectItem value="block_seller">Блокировать продавца</SelectItem>
+                                <SelectItem value="block_both">Блокировать обоих</SelectItem>
+                                <SelectItem value="dismiss_case">Отклонить</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Notes */}
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Заметки</label>
+                            <Textarea
+                              placeholder="Добавьте заметки о проверке..."
+                              value={reviewNotes}
+                              onChange={(e) => setReviewNotes(e.target.value)}
+                              rows={3}
+                              className="text-sm resize-none"
+                            />
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="space-y-3">
+                            <Button onClick={handlePrimaryAction} className="w-full bg-red-600 hover:bg-red-700 text-sm" disabled={!actionType}>
+                              <Ban className="h-4 w-4 mr-2" />
+                              Принять меры
+                            </Button>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <Button onClick={async () => { setActionType("warning_issued"); await handlePrimaryAction() }} className="bg-green-600 hover:bg-green-700 text-sm">
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Предупредить
+                              </Button>
+                              <Button variant="outline" onClick={async () => { setActionType("dismiss_case"); await handlePrimaryAction() }} className="text-sm bg-transparent">
+                                <X className="h-4 w-4 mr-2" />
+                                Отклонить
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   )}
-
-
-                </CardContent>
-              </Card>
+                </Accordion>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Block Reason Selection Dialog */}
-      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Выберите причину блокировки</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Пользователь: <strong>{selectedUserToBlock?.firstName} {selectedUserToBlock?.lastName}</strong>
-            </p>
-            
-            <div className="text-sm text-gray-600 mb-4">
-              Выберите одну из предустановленных причин блокировки:
-            </div>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {BLOCK_REASONS.map((reason) => (
-                <Button
-                  key={reason.value}
-                  variant={selectedBlockReason === reason.value ? "default" : "outline"}
-                  className={`justify-start h-auto p-4 text-left ${
-                    selectedBlockReason === reason.value 
-                      ? "bg-red-600 text-white border-red-600" 
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => setSelectedBlockReason(reason.value)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full border-2 ${
-                      selectedBlockReason === reason.value 
-                        ? "bg-white border-white" 
-                        : "border-gray-300"
-                    }`} />
-                    <div>
-                      <div className="font-medium">{reason.label}</div>
-                    </div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setShowBlockDialog(false);
-                setSelectedBlockReason("");
-              }}>
-                Отмена
-              </Button>
-              <Button 
-                onClick={() => handleBlockUser(selectedUserToBlock, selectedBlockReason)}
-                disabled={!selectedBlockReason || isSubmitting}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {isSubmitting ? "Блокировка..." : "Заблокировать пользователя"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Unblock Reason Selection Dialog */}
-      <Dialog open={showUnblockDialog} onOpenChange={setShowUnblockDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Выберите причину разблокировки</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Пользователь: <strong>{selectedUserToUnblock?.name}</strong>
-            </p>
-            
-            <div className="text-sm text-gray-600 mb-4">
-              Выберите одну из предустановленных причин разблокировки:
-            </div>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {UNBLOCK_REASONS.map((reason) => (
-                <Button
-                  key={reason.value}
-                  variant={selectedUnblockReason === reason.value ? "default" : "outline"}
-                  className={`justify-start h-auto p-4 text-left ${
-                    selectedUnblockReason === reason.value 
-                      ? "bg-green-600 text-white border-green-600" 
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => setSelectedUnblockReason(reason.value)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full border-2 ${
-                      selectedUnblockReason === reason.value 
-                        ? "bg-white border-white" 
-                        : "border-gray-300"
-                    }`} />
-                    <div>
-                      <div className="font-medium">{reason.label}</div>
-                    </div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setShowUnblockDialog(false);
-                setSelectedUnblockReason("");
-              }}>
-                Отмена
-              </Button>
-              <Button 
-                onClick={handleUnblockConfirm}
-                disabled={!selectedUnblockReason || isSubmitting}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isSubmitting ? "Разблокировка..." : "Разблокировать пользователя"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-} 
+  )
+}

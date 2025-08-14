@@ -1,6 +1,30 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const getCurrentUser = async (ctx: any) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return null;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_telegram_id", (q: any) => q.eq("telegramId", (identity as any).telegramId))
+    .first();
+  return user || null;
+};
+
+const requireAdmin = async (ctx: any) => {
+  const user = await getCurrentUser(ctx);
+  if (!user || user.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+  return user;
+};
+
+const assertModeratorMatchesCurrentUser = (currentUser: any, moderatorId?: string) => {
+  if (moderatorId && currentUser?._id !== moderatorId) {
+    throw new Error("Moderator mismatch");
+  }
+};
+
 const SUSPICIOUS_KEYWORDS = {
   external_communication: [
     "whatsapp", "telegram", "viber", "watsapp", "вотсап", "ватсап", "телеграм", "телега", "вайбер",
@@ -205,6 +229,12 @@ export const createModerationCase = mutation({
     if (!chat) {
       throw new Error("Chat not found");
     }
+    const participants = [chat.buyerId, chat.sellerId];
+    const isSenderParticipant = participants.some((id) => id === args.senderId);
+    const expectedReceiver = chat.buyerId === args.senderId ? chat.sellerId : chat.buyerId;
+    if (!isSenderParticipant || expectedReceiver !== args.receiverId) {
+      throw new Error("Invalid participants for moderation case");
+    }
 
     const caseId = await ctx.db.insert("moderationCases", {
       chatId: args.chatId,
@@ -232,6 +262,7 @@ export const getModerationCases = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     let query = ctx.db.query("moderationCases");
 
     if (args.status) {
@@ -329,6 +360,8 @@ export const resolveModerationCase = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const currentUser = await requireAdmin(ctx);
+    assertModeratorMatchesCurrentUser(currentUser, args.moderatorId);
     const moderationCase = await ctx.db.get(args.caseId);
     if (!moderationCase) {
       throw new Error("Moderation case not found");
@@ -336,31 +369,79 @@ export const resolveModerationCase = mutation({
 
     // Perform the action
     if (args.actionType === "block_buyer") {
-      await ctx.db.insert("userBlocks", {
-        blockerId: args.moderatorId,
-        blockedUserId: moderationCase.buyerId,
-        reason: args.reason,
-        createdAt: Date.now(),
+      const existingBlock = await ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocked", (q) => q.eq("blockedUserId", moderationCase.buyerId))
+        .first();
+      if (!existingBlock) {
+        await ctx.db.insert("userBlocks", {
+          blockerId: args.moderatorId,
+          blockedUserId: moderationCase.buyerId,
+          reason: args.reason,
+          createdAt: Date.now(),
+        });
+      }
+      await ctx.db.patch(moderationCase.buyerId, {
+        isBlocked: true,
+        blockedAt: Date.now(),
+        blockedBy: args.moderatorId,
+        blockReason: args.reason,
       });
     } else if (args.actionType === "block_seller") {
-      await ctx.db.insert("userBlocks", {
-        blockerId: args.moderatorId,
-        blockedUserId: moderationCase.sellerId,
-        reason: args.reason,
-        createdAt: Date.now(),
+      const existingBlock = await ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocked", (q) => q.eq("blockedUserId", moderationCase.sellerId))
+        .first();
+      if (!existingBlock) {
+        await ctx.db.insert("userBlocks", {
+          blockerId: args.moderatorId,
+          blockedUserId: moderationCase.sellerId,
+          reason: args.reason,
+          createdAt: Date.now(),
+        });
+      }
+      await ctx.db.patch(moderationCase.sellerId, {
+        isBlocked: true,
+        blockedAt: Date.now(),
+        blockedBy: args.moderatorId,
+        blockReason: args.reason,
       });
     } else if (args.actionType === "block_both") {
-      await ctx.db.insert("userBlocks", {
-        blockerId: args.moderatorId,
-        blockedUserId: moderationCase.buyerId,
-        reason: args.reason,
-        createdAt: Date.now(),
+      const existingBuyerBlock = await ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocked", (q) => q.eq("blockedUserId", moderationCase.buyerId))
+        .first();
+      if (!existingBuyerBlock) {
+        await ctx.db.insert("userBlocks", {
+          blockerId: args.moderatorId,
+          blockedUserId: moderationCase.buyerId,
+          reason: args.reason,
+          createdAt: Date.now(),
+        });
+      }
+      const existingSellerBlock = await ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocked", (q) => q.eq("blockedUserId", moderationCase.sellerId))
+        .first();
+      if (!existingSellerBlock) {
+        await ctx.db.insert("userBlocks", {
+          blockerId: args.moderatorId,
+          blockedUserId: moderationCase.sellerId,
+          reason: args.reason,
+          createdAt: Date.now(),
+        });
+      }
+      await ctx.db.patch(moderationCase.buyerId, {
+        isBlocked: true,
+        blockedAt: Date.now(),
+        blockedBy: args.moderatorId,
+        blockReason: args.reason,
       });
-      await ctx.db.insert("userBlocks", {
-        blockerId: args.moderatorId,
-        blockedUserId: moderationCase.sellerId,
-        reason: args.reason,
-        createdAt: Date.now(),
+      await ctx.db.patch(moderationCase.sellerId, {
+        isBlocked: true,
+        blockedAt: Date.now(),
+        blockedBy: args.moderatorId,
+        blockReason: args.reason,
       });
     }
 
@@ -384,6 +465,7 @@ export const getBlockedUsers = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const userBlocks = await ctx.db
       .query("userBlocks")
       .order("desc")
@@ -435,6 +517,8 @@ export const unblockUser = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
+    const currentUser = await requireAdmin(ctx);
+    assertModeratorMatchesCurrentUser(currentUser, args.moderatorId);
     // Find and remove the block record
     const blockRecord = await ctx.db
       .query("userBlocks")
@@ -447,6 +531,13 @@ export const unblockUser = mutation({
 
     await ctx.db.delete(blockRecord._id);
 
+    await ctx.db.patch(args.blockedUserId, {
+      isBlocked: false,
+      unblockedAt: Date.now(),
+      unblockedBy: args.moderatorId,
+      unblockReason: args.reason,
+    });
+
     return { success: true };
   },
 });
@@ -454,6 +545,7 @@ export const unblockUser = mutation({
 export const getModerationStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const allCases = await ctx.db.query("moderationCases").collect();
     const blockedUsers = await ctx.db.query("userBlocks").collect();
     
@@ -485,6 +577,7 @@ export const getChatMessages = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
@@ -536,6 +629,8 @@ export const sendWarningMessage = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
+    const currentUser = await requireAdmin(ctx);
+    assertModeratorMatchesCurrentUser(currentUser, args.moderatorId);
     const moderationCase = await ctx.db.get(args.caseId);
     if (!moderationCase) {
       throw new Error("Moderation case not found");
@@ -590,6 +685,8 @@ export const blockUserPlatformWide = mutation({
     caseId: v.optional(v.id("moderationCases")),
   },
   handler: async (ctx, args) => {
+    const currentUser = await requireAdmin(ctx);
+    assertModeratorMatchesCurrentUser(currentUser, args.moderatorId);
     // Check if user is already blocked
     const existingBlock = await ctx.db
       .query("userBlocks")
@@ -636,6 +733,8 @@ export const unblockUserPlatformWide = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
+    const currentUser = await requireAdmin(ctx);
+    assertModeratorMatchesCurrentUser(currentUser, args.moderatorId);
     // Check if user is actually blocked
     const user = await ctx.db.get(args.userId);
     if (!user?.isBlocked) {
@@ -671,6 +770,14 @@ export const checkUserBlockStatus = query({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser) {
+      throw new Error("Unauthorized");
+    }
+    const isSelf = currentUser._id === args.userId;
+    if (!isSelf && currentUser.role !== "admin") {
+      throw new Error("Forbidden");
+    }
     const user = await ctx.db.get(args.userId);
     const blockRecord = await ctx.db
       .query("userBlocks")

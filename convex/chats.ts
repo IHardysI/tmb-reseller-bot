@@ -338,6 +338,16 @@ export const sendMessage = mutation({
     if (!chat) {
       throw new Error("Chat not found");
     }
+    if (chat.buyerId !== args.senderId && chat.sellerId !== args.senderId) {
+      throw new Error("Forbidden");
+    }
+    const sender = await ctx.db.get(args.senderId);
+    if (!sender) {
+      throw new Error("Sender not found");
+    }
+    if (sender.isBlocked) {
+      throw new Error("User is blocked");
+    }
 
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
@@ -451,6 +461,13 @@ export const startChatWithMessage = mutation({
     const post = await ctx.db.get(args.postId);
     if (!post) {
       throw new Error("Post not found");
+    }
+    const buyer = await ctx.db.get(args.buyerId);
+    if (!buyer) {
+      throw new Error("Buyer not found");
+    }
+    if (buyer.isBlocked) {
+      throw new Error("User is blocked");
     }
 
     // Check if chat already exists

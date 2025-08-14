@@ -1,6 +1,24 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const getCurrentUser = async (ctx: any) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return null;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_telegram_id", (q: any) => q.eq("telegramId", (identity as any).telegramId))
+    .first();
+  return user || null;
+};
+
+const requireAdmin = async (ctx: any) => {
+  const user = await getCurrentUser(ctx);
+  if (!user || user.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+  return user;
+};
+
 export const getUserByTelegramId = query({
   args: { telegramId: v.number() },
   handler: async (ctx, args) => {
@@ -258,6 +276,7 @@ export const setUserRole = mutation({
     role: v.union(v.literal("admin"), v.literal("user")),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const user = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("telegramId"), args.telegramId))
@@ -322,6 +341,7 @@ export const getCurrentUserRole = query({
 export const debugUserChatIds = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const users = await ctx.db.query("users").collect();
     
     return users.map(user => ({
