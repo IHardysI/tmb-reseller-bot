@@ -91,9 +91,17 @@ export function AppSidebar({
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
   const telegramUser = useOptimizedTelegramUser()
+  const roleInfo = useQuery(
+    api.users.checkUserRole,
+    telegramUser.userData?.telegramId ? { telegramId: telegramUser.userData.telegramId as any } : 'skip'
+  )
+  const isAdmin = !!roleInfo?.isAdmin
   
   // Get notification counts
-  const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" })
+  const activeCases = useQuery(
+    api.moderation.getModerationCases,
+    isAdmin ? { status: "pending" } : 'skip'
+  )
   const currentUser = telegramUser.userData
   const userChats = useQuery(api.chats.getUserChats, 
     (currentUser?.userId && telegramUser.isInitialized) 
@@ -209,7 +217,7 @@ export function AppSidebar({
       <SidebarHeader className="px-6 py-4 border-b bg-white shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Peer Swap</h2>
         {isMobile && (
-                      <div className={`grid ${telegramUser.isAdmin ? 'grid-cols-5' : 'grid-cols-4'} gap-2 mt-4 pb-2 border-gray-200`}>
+                      <div className={`grid ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'} gap-2 mt-4 pb-2 border-gray-200`}>
             <div className="flex-1">
               <Button 
                 variant="outline" 
@@ -256,7 +264,7 @@ export function AppSidebar({
                 )}
             </Button>
             </div>
-                          {telegramUser.isAdmin && (
+                          {isAdmin && (
               <div className="flex-1">
                 <Button 
                   variant="outline" 

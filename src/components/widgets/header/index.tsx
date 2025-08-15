@@ -23,10 +23,20 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
   const telegramUser = useOptimizedTelegramUser()
-  
-  const activeCases = useQuery(api.moderation.getModerationCases, { status: "pending" })
+  const roleInfo = useQuery(
+    api.users.checkUserRole,
+    telegramUser.userData?.telegramId ? { telegramId: telegramUser.userData.telegramId as any } : 'skip'
+  )
+  const isAdmin = !!roleInfo?.isAdmin
+  const activeCases = useQuery(
+    api.moderation.getModerationCases,
+    isAdmin ? { status: "pending" } : 'skip'
+  )
   const currentUser = telegramUser.userData
-  const userChats = useQuery(api.chats.getUserChats, currentUser?.userId ? { userId: currentUser.userId as any } : 'skip')
+  const userChats = useQuery(
+    api.chats.getUserChats,
+    currentUser?.userId ? { userId: currentUser.userId as any } : 'skip'
+  )
   
   const activeCasesCount = activeCases?.length || 0
   const unreadMessagesCount = userChats?.reduce((total, chat) => {
@@ -83,7 +93,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                   )}
                 </Button>
               </Link>
-              {telegramUser.isAdmin && (
+              {isAdmin && (
                 <Link href="/moderation">
                   <Button variant="outline" size="sm" className="h-9 px-4 border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 text-gray-700 hover:text-red-700 shadow-sm transition-all duration-200 relative">
                     <Shield className="h-4 w-4 mr-2" />

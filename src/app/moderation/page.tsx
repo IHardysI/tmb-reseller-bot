@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useUserStore } from "@/stores/userStore"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRouter } from "next/navigation"
 
 interface ModerationWarning {
   id: string
@@ -74,6 +75,7 @@ interface ModerationStats {}
 interface ModerationPageProps {}
 
 export default function ModerationPage() {
+  const router = useRouter()
   const { userData } = useUserStore()
   const { toast } = useToast()
   const [selectedWarning, setSelectedWarning] = useState<ModerationWarning | null>(null)
@@ -82,22 +84,40 @@ export default function ModerationPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [reviewNotes, setReviewNotes] = useState("")
   const [actionType, setActionType] = useState<string>("")
+  const isAdmin = userData?.role === "admin"
 
-  const cases = useQuery(api.moderation.getModerationCases, {
-    status: filterStatus === "all" ? undefined : (filterStatus as any),
-    riskLevel: filterRisk === "all" ? undefined : (filterRisk as any),
-    limit: 200,
-  })
-  const stats = useQuery(api.moderation.getModerationStats, {})
+  useEffect(() => {
+    if (userData && !isAdmin) {
+      router.replace("/")
+    }
+  }, [userData, isAdmin, router])
+
+  const cases = useQuery(
+    api.moderation.getModerationCases,
+    isAdmin
+      ? {
+          status: filterStatus === "all" ? undefined : (filterStatus as any),
+          riskLevel: filterRisk === "all" ? undefined : (filterRisk as any),
+          limit: 200,
+        }
+      : "skip"
+  )
+  const stats = useQuery(
+    api.moderation.getModerationStats,
+    isAdmin ? {} : "skip"
+  )
   const chatMessages = useQuery(
     api.moderation.getChatMessages,
-    selectedWarning ? { chatId: selectedWarning.chatId as any, limit: 50 } : "skip"
+    selectedWarning && isAdmin ? { chatId: selectedWarning.chatId as any, limit: 50 } : "skip"
   )
   const resolveCase = useMutation(api.moderation.resolveModerationCase)
   const sendWarning = useMutation(api.moderation.sendWarningMessage)
   const blockUserPlatformWide = useMutation(api.moderation.blockUserPlatformWide)
   const unblockUserPlatformWide = useMutation(api.moderation.unblockUserPlatformWide)
-  const getBlockedUsers = useQuery(api.moderation.getBlockedUsers, { limit: 100 })
+  const getBlockedUsers = useQuery(
+    api.moderation.getBlockedUsers,
+    isAdmin ? { limit: 100 } : "skip"
+  )
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
