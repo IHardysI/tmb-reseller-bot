@@ -39,9 +39,16 @@ export default function Header({ title, subtitle }: HeaderProps) {
   )
   
   const activeCasesCount = activeCases?.length || 0
-  const unreadMessagesCount = userChats?.reduce((total, chat) => {
-    return total + (chat.unreadCount || 0)
-  }, 0) || 0
+  const unreadMessagesCount = (() => {
+    if (!userChats || userChats.length === 0) return 0
+    const uniqueSenderIds = new Set<string>()
+    for (const chat of userChats) {
+      if (chat.unreadCount && chat.unreadCount > 0 && chat.otherParticipant?.id) {
+        uniqueSenderIds.add(String(chat.otherParticipant.id))
+      }
+    }
+    return uniqueSenderIds.size
+  })()
 
 
   
