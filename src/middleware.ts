@@ -23,13 +23,37 @@ export async function middleware(request: NextRequest) {
   const parsed = parseCookie(cookieVal)
   const isBlocked = parsed?.state?.userData?.isBlocked || parsed?.userData?.isBlocked
   if (isBlocked && pathname !== '/blocked') {
-    return NextResponse.redirect(new URL('/blocked', request.url))
+    const convexUrlEnv = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL
+    let telegramId: any = parsed?.state?.userData?.telegramId || parsed?.userData?.telegramId || parsed?.state?.telegramUser?.id || parsed?.telegramUser?.id
+    if (typeof telegramId === 'string') {
+      const n = Number(telegramId)
+      telegramId = Number.isNaN(n) ? telegramId : n
+    }
+    if (convexUrlEnv && typeof telegramId === 'number') {
+      try {
+        const baseUrl = convexUrlEnv.replace(/\/$/, '').replace(/\/api$/, '')
+        const resp = await fetch(`${baseUrl}/api/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ path: 'users:getUserByTelegramId', args: { telegramId } }),
+        })
+        if (resp.ok) {
+          const body = await resp.json()
+          const v = typeof body === 'object' ? (body.value ?? body.result ?? body) : null
+          if (v && v.isBlocked === true) {
+            return NextResponse.redirect(new URL('/blocked', request.url))
+          }
+        }
+      } catch {}
+      return NextResponse.next()
+    }
+    return NextResponse.next()
   }
 
   if (adminRoute) {
     const convexUrlEnv = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL
-    if (!convexUrlEnv) return NextResponse.redirect(new URL('/', request.url))
-    const baseUrl = convexUrlEnv.replace(/\/$/, '').replace(/\/api$/, '')
+    const baseUrl = convexUrlEnv ? convexUrlEnv.replace(/\/$/, '').replace(/\/api$/, '') : null
 
     const cookieRole = parsed?.state?.userData?.role || parsed?.userData?.role
     if (cookieRole === 'admin') {
@@ -40,7 +64,9 @@ export async function middleware(request: NextRequest) {
       const n = Number(telegramId)
       telegramId = Number.isNaN(n) ? telegramId : n
     }
-    if (typeof telegramId !== 'number') return NextResponse.redirect(new URL('/', request.url))
+    if (!baseUrl || typeof telegramId !== 'number') {
+      return NextResponse.next()
+    }
 
     try {
       const resp = await fetch(`${baseUrl}/api/query`, {

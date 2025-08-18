@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Ban, AlertTriangle, Clock, Mail, Copy, ExternalLink } from "lucide-react";
 import { useTelegramUser } from "@/hooks/useTelegramUser";
+import { useRouter } from "next/navigation";
 
 export default function BlockedPage() {
   const telegramUser = useTelegramUser();
+  const router = useRouter();
   const supportEmail = "support@reseller-market.ru";
   
   // Use direct database query to get full user object with blocking info
@@ -29,25 +32,18 @@ export default function BlockedPage() {
     });
   };
 
+  useEffect(() => {
+    if (currentUser && !(currentUser as any).isBlocked) {
+      router.replace("/")
+    }
+  }, [currentUser, router])
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
             <p className="text-gray-600">Загрузка...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Check if user is actually blocked
-  if (!(currentUser as any).isBlocked) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600">Доступ разрешен</p>
           </CardContent>
         </Card>
       </div>

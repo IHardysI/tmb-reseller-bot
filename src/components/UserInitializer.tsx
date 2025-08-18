@@ -74,9 +74,7 @@ export function UserInitializer() {
           email: existingUser.email,
           sellerInfo: existingUser.sellerInfo as any,
         }
-        if (!userData || userData._id !== (existingUser._id as any)) {
-          setUserData(normalizedUser)
-        }
+        setUserData(normalizedUser)
         
         // Update user's telegramChatId if they don't have one
         if (user && existingUser && !existingUser.telegramChatId) {
