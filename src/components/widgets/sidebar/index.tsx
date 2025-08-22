@@ -91,10 +91,7 @@ export function AppSidebar({
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
   const telegramUser = useOptimizedTelegramUser()
-  const roleInfo = useQuery(
-    api.users.checkUserRole,
-    telegramUser.userData?.telegramId ? { telegramId: telegramUser.userData.telegramId as any } : 'skip'
-  )
+  const roleInfo = useQuery(api.users.getCurrentUserRole)
   const isAdmin = !!roleInfo?.isAdmin
   
   // Get notification counts
@@ -103,9 +100,10 @@ export function AppSidebar({
     isAdmin ? { status: "pending" } : 'skip'
   )
   const currentUser = telegramUser.userData
-  const userChats = useQuery(api.chats.getUserChats, 
-    (currentUser?.userId && telegramUser.isInitialized) 
-      ? { userId: currentUser.userId as any } 
+  const userChats = useQuery(
+    api.chats.getUserChats,
+    (currentUser?.userId && telegramUser.isInitialized)
+      ? { userId: currentUser.userId as any }
       : 'skip'
   )
   

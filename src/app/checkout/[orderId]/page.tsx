@@ -55,13 +55,19 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("card")
   const [isCdekOpen, setIsCdekOpen] = useState(false)
   const [cdekPoint, setCdekPoint] = useState<null | { code: string; address: string; city: string; pvzId?: string }>(null)
+  const [cdekTariff, setCdekTariff] = useState<null | { code: number; name: string; sum: number; mode: 'office' | 'door' }>(null)
 
   const delivery = DELIVERY_OPTIONS.find((d) => d.code === deliveryCode) || DELIVERY_OPTIONS[0]
 
   const subtotal = item ? item.price * quantity : 0
   const platformFee = computePlatformFee(subtotal)
-  const deliveryCost = deliveryCode === 'pickup' && cdekPoint ? 0 : delivery.cost
+  const deliveryCost = cdekTariff ? Math.round(cdekTariff.sum) : (deliveryCode === 'pickup' && cdekPoint ? 0 : delivery.cost)
   const total = subtotal + platformFee + deliveryCost
+  useEffect(() => {
+    setCdekTariff(null)
+    if (deliveryCode !== 'pickup') setCdekPoint(null)
+  }, [deliveryCode])
+
 
   // Prefill from current user but keep fields editable
   useEffect(() => {
@@ -96,16 +102,35 @@ export default function CheckoutPage() {
         apiKey: apiKey || '',
         servicePath: servicePath || '',
         defaultLocation: city || 'Москва',
-        from: 'Москва',
-        country: 'rus',
+        from: process.env.NEXT_PUBLIC_CDEK_FROM || 'Москва',
+        lang: 'rus',
         goods: [{ length: 10, width: 10, height: 10, weight: 500 }],
-        onChoose: (point: any) => {
-          setCdekPoint({
-            code: point.code || point.id || '',
-            address: point.address || point.PVZ?.Address || '',
-            city: point.city || point.cityName || (city || ''),
-            pvzId: point.id || point.PVZ?.Code,
-          })
+        onCalculate: (tariffs: any) => {
+          if (!tariffs) return
+          const officeMin = Array.isArray(tariffs.office) && tariffs.office.length > 0 ? tariffs.office.reduce((a: any, b: any) => (a.delivery_sum <= b.delivery_sum ? a : b)) : null
+          const doorMin = Array.isArray(tariffs.door) && tariffs.door.length > 0 ? tariffs.door.reduce((a: any, b: any) => (a.delivery_sum <= b.delivery_sum ? a : b)) : null
+          const candidate = deliveryCode === 'pickup' ? officeMin : doorMin || officeMin
+          if (candidate) {
+            setCdekTariff({ code: candidate.tariff_code, name: candidate.tariff_name, sum: candidate.delivery_sum, mode: deliveryCode === 'pickup' ? 'office' : 'door' })
+          }
+        },
+        onChoose: (mode: 'office' | 'door', tariff: any, addr: any) => {
+          if (mode === 'office') {
+            setCdekPoint({
+              code: addr.code || '',
+              address: addr.address || '',
+              city: addr.city || city || '',
+              pvzId: addr.code || '',
+            })
+            setCdekTariff({ code: tariff.tariff_code, name: tariff.tariff_name, sum: tariff.delivery_sum, mode: 'office' })
+            setDeliveryCode('pickup')
+          } else if (mode === 'door') {
+            if (addr?.formatted) setAddress(addr.formatted)
+            if (addr?.city) setCity(addr.city)
+            setCdekTariff({ code: tariff.tariff_code, name: tariff.tariff_name, sum: tariff.delivery_sum, mode: 'door' })
+            setCdekPoint(null)
+            setDeliveryCode('courier')
+          }
           setIsCdekOpen(false)
         },
       })
@@ -120,7 +145,7 @@ export default function CheckoutPage() {
     buyerName.trim().length > 1 &&
     buyerPhone.trim().length >= 10 &&
     city.trim().length > 1 &&
-    address.trim().length > 5
+    ((deliveryCode === 'pickup' && !!cdekPoint) || (deliveryCode !== 'pickup' && address.trim().length > 5))
 
   const handlePay = () => {
     if (!item) return
@@ -283,28 +308,48 @@ export default function CheckoutPage() {
                     {DELIVERY_OPTIONS.find((d) => d.code === deliveryCode)?.description} •{" "}
                     {delivery.eta}
                   </div>
-                  <div className="font-medium mt-2">{delivery.cost.toLocaleString()} ₽</div>
+                  <div className="font-medium mt-2">{(cdekTariff ? Math.round(cdekTariff.sum) : delivery.cost).toLocaleString()} ₽</div>
                 </div>
               </div>
 
-              {deliveryCode === 'pickup' && (
-                <div className="mt-3 space-y-2">
-                  <Button variant="outline" onClick={() => { setIsCdekOpen(true) }}>
-                    Выбрать пункт выдачи CDEK
-                  </Button>
-                  <div className="text-sm text-gray-700">
-                    {cdekPoint ? (
-                      <>
-                        <div>ПВЗ: <span className="font-medium">{cdekPoint.address}</span></div>
-                        {cdekPoint.city && (<div>Город: <span className="font-medium">{cdekPoint.city}</span></div>)}
-                        {cdekPoint.pvzId && (<div>Код ПВЗ: <span className="font-medium">{cdekPoint.pvzId}</span></div>)}
-                      </>
-                    ) : (
-                      <p className="text-xs text-gray-500">Пункт выдачи не выбран</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="mt-3 space-y-2">
+                {deliveryCode === 'pickup' && (
+                  <>
+                    <Button variant="outline" onClick={() => { setIsCdekOpen(true) }}>
+                      Выбрать пункт выдачи CDEK
+                    </Button>
+                    <div className="text-sm text-gray-700">
+                      {cdekPoint ? (
+                        <>
+                          <div>ПВЗ: <span className="font-medium">{cdekPoint.address}</span></div>
+                          {cdekPoint.city && (<div>Город: <span className="font-medium">{cdekPoint.city}</span></div>)}
+                          {cdekPoint.pvzId && (<div>Код ПВЗ: <span className="font-medium">{cdekPoint.pvzId}</span></div>)}
+                          {cdekTariff && (<div>Тариф: <span className="font-medium">{cdekTariff.name}</span></div>)}
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-500">Пункт выдачи не выбран</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {deliveryCode === 'courier' && (
+                  <>
+                    <Button variant="outline" onClick={() => { setIsCdekOpen(true) }}>
+                      Выбрать адрес на карте CDEK
+                    </Button>
+                    <div className="text-sm text-gray-700">
+                      {cdekTariff ? (
+                        <>
+                          <div>Тариф: <span className="font-medium">{cdekTariff.name}</span></div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-500">Адрес не выбран через карту</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

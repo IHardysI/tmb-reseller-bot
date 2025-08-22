@@ -23,10 +23,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const { getCartItemsCount } = useCart()
   const cartItemsCount = getCartItemsCount()
   const telegramUser = useOptimizedTelegramUser()
-  const roleInfo = useQuery(
-    api.users.checkUserRole,
-    telegramUser.userData?.telegramId ? { telegramId: telegramUser.userData.telegramId as any } : 'skip'
-  )
+  const roleInfo = useQuery(api.users.getCurrentUserRole)
   const isAdmin = !!roleInfo?.isAdmin
   const activeCases = useQuery(
     api.moderation.getModerationCases,
