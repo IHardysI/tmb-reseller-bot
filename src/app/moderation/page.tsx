@@ -39,6 +39,7 @@ import { useUserStore } from "@/stores/userStore"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
+import { useOptimizedTelegramUser } from "@/hooks/useOptimizedTelegramUser"
 
 interface ModerationWarning {
   id: string
@@ -77,6 +78,7 @@ interface ModerationPageProps {}
 export default function ModerationPage() {
   const router = useRouter()
   const { userData } = useUserStore()
+  const telegramUser = useOptimizedTelegramUser()
   const { toast } = useToast()
   const [selectedWarning, setSelectedWarning] = useState<ModerationWarning | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -84,13 +86,14 @@ export default function ModerationPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [reviewNotes, setReviewNotes] = useState("")
   const [actionType, setActionType] = useState<string>("")
-  const isAdmin = userData?.role === "admin"
+  const roleInfo = useQuery(api.users.getCurrentUserRole)
+  const isAdmin = !!roleInfo?.isAdmin
 
   useEffect(() => {
-    if (userData && !isAdmin) {
+    if (roleInfo && !isAdmin) {
       router.replace("/")
     }
-  }, [userData, isAdmin, router])
+  }, [roleInfo, isAdmin, router])
 
   const cases = useQuery(
     api.moderation.getModerationCases,
