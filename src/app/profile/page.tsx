@@ -37,7 +37,8 @@ import {
   Lock,
   TrendingUp,
   Eye,
-  Heart
+  Heart,
+  FileText
 } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
@@ -50,6 +51,7 @@ import { PageLoader } from "@/components/ui/loader"
 import ProductCard from "@/components/widgets/product-card"
 import ProductDetail from "@/components/widgets/product-detail"
 import AddItemDialog from "@/components/widgets/create-post"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface UserProfile {
   id: string
@@ -389,7 +391,22 @@ function ProfilePageContent() {
     <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl">
       {/* Profile Header */}
       <Card className="mb-4 sm:mb-6">
-        <CardContent className="p-4 sm:p-6">
+        <CardContent className="relative p-4 sm:p-6">
+          <div className="absolute top-2 right-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => router.push("/terms")}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Пользовательское соглашение
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
             <Avatar className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 ring-4 ring-white shadow-lg mx-auto md:mx-0">
               <AvatarImage src={userData.avatar} alt={userData.name} />
