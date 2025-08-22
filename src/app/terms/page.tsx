@@ -24,20 +24,12 @@ import {
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-interface TermsPageProps {
-  onBack?: () => void
-}
-
-export default function TermsPage({ onBack }: TermsPageProps) {
+export default function TermsPage() {
   const router = useRouter()
   const [expandedSections, setExpandedSections] = useState<string[]>(["overview"])
 
   const handleBack = () => {
-    if (onBack) {
-      onBack()
-    } else {
-      router.back()
-    }
+    router.back()
   }
 
   const toggleSection = (sectionId: string) => {
