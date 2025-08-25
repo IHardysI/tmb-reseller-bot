@@ -125,6 +125,24 @@ function ProfilePageContent() {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingSellerInfo, setIsSavingSellerInfo] = useState(false)
   const payoutRenderedRef = useRef(false)
+  const waitForElementById = (elementId: string, timeoutMs = 4000): Promise<HTMLElement | null> => {
+    return new Promise(resolve => {
+      const startedAtMs = Date.now()
+      const check = () => {
+        const el = document.getElementById(elementId)
+        if (el) {
+          resolve(el)
+          return
+        }
+        if (Date.now() - startedAtMs >= timeoutMs) {
+          resolve(null)
+          return
+        }
+        requestAnimationFrame(check)
+      }
+      check()
+    })
+  }
 
   // YooKassa widget initialization
   const initializePayoutWidget = () => {
@@ -176,23 +194,35 @@ function ProfilePageContent() {
   }, [currentUser])
 
   useEffect(() => {
-    if (!isSellerDialogOpen) {
-      payoutRenderedRef.current = false
-      return
-    }
-    if (typeof window !== 'undefined' && (window as any).PayoutsData && !payoutRenderedRef.current) {
+    let isCancelled = false
+    const run = async () => {
+      if (!isSellerDialogOpen) {
+        payoutRenderedRef.current = false
+        return
+      }
+      if (typeof window === 'undefined' || !(window as any).PayoutsData || payoutRenderedRef.current) {
+        return
+      }
+      const container = await waitForElementById('yookassa-payout-form', 4000)
+      if (!container || isCancelled) {
+        return
+      }
       const widget = initializePayoutWidget()
-      if (widget) {
-        widget.render('yookassa-payout-form')
-          .then(() => {
-            payoutRenderedRef.current = true
-          })
-          .catch((error: any) => {
-            console.error('Error rendering YooKassa widget:', error)
-            setWidgetError('Ошибка при загрузке формы. Попробуйте снова.')
-          })
+      if (!widget) {
+        return
+      }
+      try {
+        await widget.render('yookassa-payout-form')
+        if (!isCancelled) {
+          payoutRenderedRef.current = true
+        }
+      } catch (error) {
+        console.error('Error rendering YooKassa widget:', error)
+        setWidgetError('Ошибка при загрузке формы. Попробуйте снова.')
       }
     }
+    run()
+    return () => { isCancelled = true }
   }, [isSellerDialogOpen])
 
   if (!telegramUser) {
